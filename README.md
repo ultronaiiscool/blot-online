@@ -24,3 +24,9 @@ Open:
 - Root directory: `server`
 - Build: `npm install`
 - Start: `npm start`
+
+
+## Step A: Language System Expansion
+- Centralized all UI strings in `i18n.js`
+- English / Armenian / Russian complete
+- Language selector fully wired

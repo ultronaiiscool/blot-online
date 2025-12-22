@@ -1,41 +1,56 @@
 export const I18N = {
   en: {
-    title: "Armenian Blot (Step D)",
+    title: "Armenian Blot",
+    subtitle: "Online Multiplayer",
     name: "Name",
-    roomCode: "Room code",
+    roomCode: "Room Code",
     createRoom: "Create Room",
     joinRoom: "Join Room",
     quickMatch: "Quick Match",
     leave: "Leave",
-    queued: "Queued for Quick Match",
+    players: "Players",
+    yourHand: "Your Hand",
+    trick: "Trick",
+    waitingPlayers: "Waiting for players…",
     yourTurn: "Your turn",
     waitTurn: "Waiting…",
-    players: "Players"
+    queued: "Queued for Quick Match",
+    signInGoogle: "Sign in with Google"
   },
   hy: {
-    title: "Հայկական Բլոտ (Քայլ D)",
+    title: "Հայկական Բլոտ",
+    subtitle: "Առցանց բազմախաղ",
     name: "Անուն",
     roomCode: "Սենյակի կոդ",
     createRoom: "Սենյակ ստեղծել",
     joinRoom: "Միանալ",
     quickMatch: "Արագ խաղ",
     leave: "Դուրս գալ",
-    queued: "Դուք հերթում եք (Արագ խաղ)",
+    players: "Խաղացողներ",
+    yourHand: "Քո քարտերը",
+    trick: "Քարտեր",
+    waitingPlayers: "Սպասում ենք խաղացողներին…",
     yourTurn: "Քո հերթն է",
     waitTurn: "Սպասում…",
-    players: "Խաղացողներ"
+    queued: "Հերթում եք (արագ խաղ)",
+    signInGoogle: "Մուտք Google-ով"
   },
   ru: {
-    title: "Армянский Блот (Шаг D)",
+    title: "Армянский Блот",
+    subtitle: "Онлайн мультиплеер",
     name: "Имя",
     roomCode: "Код комнаты",
     createRoom: "Создать комнату",
     joinRoom: "Присоединиться",
     quickMatch: "Быстрая игра",
     leave: "Выйти",
-    queued: "В очереди (быстрая игра)",
+    players: "Игроки",
+    yourHand: "Ваши карты",
+    trick: "Карты",
+    waitingPlayers: "Ожидание игроков…",
     yourTurn: "Ваш ход",
     waitTurn: "Ожидание…",
-    players: "Игроки"
+    queued: "В очереди (быстрая игра)",
+    signInGoogle: "Войти через Google"
   }
 };
