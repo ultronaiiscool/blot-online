@@ -1,3 +1,4 @@
+import { I18N } from "./i18n.js";
 const el = (id) => document.getElementById(id);
 const roomsEl = el("rooms");
 const roomPanel = el("roomPanel");
@@ -46,6 +47,10 @@ const contraBtn = el("contraBtn");
 const recontraBtn = el("recontraBtn");
 const legalBtn = el("legalBtn");
 const nextHandBtn = el("nextHandBtn");
+const langSelect = el("langSelect");
+const botLevel = el("botLevel");
+const voicePanel = el("voicePanel");
+const voiceList = el("voiceList");
 
 const sortBtn = el("sortBtn");
 const micBtn = el("micBtn");
@@ -399,6 +404,22 @@ function seatName(state, seat){
   return state.seats?.[seat]?.name || `Seat ${seat+1}`;
 }
 
+
+function applyI18n(){
+  const q = el("quickMatchBtn"); if (q) q.textContent = t("quickMatch");
+  const cr = el("createRoomBtn"); if (cr) cr.textContent = t("createRoom");
+  const jr = el("joinRoomBtn"); if (jr) jr.textContent = t("joinRoom");
+  const nm = el("nameLabel"); if (nm) nm.textContent = t("yourName");
+  const rc = el("roomLabel"); if (rc) rc.textContent = t("roomCode");
+  const tg = el("targetLabel"); if (tg) tg.textContent = t("targetScore");
+  if (sortBtn) sortBtn.textContent = t("sortHand");
+  if (legalBtn) legalBtn.textContent = t("legalPlays");
+  if (nextHandBtn) nextHandBtn.textContent = t("nextHand");
+  const micBtn = el("micBtn"); if (micBtn) micBtn.textContent = micEnabled ? t("micOn") : `🎤 ${t("mic")}`;
+  const botsLbl = document.querySelector('label[for="botLevel"]'); if (botsLbl) botsLbl.textContent = t("bots");
+  const dlgTitle = document.querySelector("#scoreDlg h3"); if (dlgTitle) dlgTitle.textContent = t("handScored");
+  const dlgOk = document.querySelector("#scoreDlg .primary"); if (dlgOk) dlgOk.textContent = t("ok");
+}
 
 function renderGame(){
   applyI18n();
@@ -778,3 +799,34 @@ function applyPeerMute(seat){
 }
 
 applyI18n();
+
+
+if (langSelect){
+  langSelect.value = lang;
+  langSelect.addEventListener("change", ()=> setLang(langSelect.value));
+}
+
+
+// name persistence
+const nameInput = el("nameInput") || el("name") || document.querySelector("input[name='name']");
+let playerName = localStorage.getItem("playerName") || "";
+if (nameInput){
+  if (!nameInput.value) nameInput.value = playerName;
+  nameInput.addEventListener("input", ()=>{
+    playerName = (nameInput.value || "").trim();
+    localStorage.setItem("playerName", playerName);
+  });
+}
+
+
+// stable token for reconnect
+let playerToken = localStorage.getItem("playerToken");
+if (!playerToken){
+  playerToken = Math.random().toString(16).slice(2) + Date.now().toString(16);
+  localStorage.setItem("playerToken", playerToken);
+}
+
+
+function sendHello(){
+  send({ t:"hello", name: (playerName || "Guest"), token: playerToken });
+}

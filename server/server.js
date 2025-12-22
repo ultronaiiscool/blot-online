@@ -641,6 +641,8 @@ function setTurn(room, seat){
 function nextSeat(seat){ return (seat + 1) % 4; }
 
 function startHand(room){
+  fillRoomWithBots(room);
+
   const s = room.state;
   s.phase = "dealing";
   s.handNo += 1;
