@@ -259,3 +259,29 @@ dialog{
   .pos--bottom{ width: 92%; }
   .center{ width: 92%; height: 170px; }
 }
+
+/* Voice panel */
+.voicePanel{
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.16);
+}
+.voiceTitle{ color: rgba(255,255,255,.82); font-size: 12px; margin-bottom: 8px; }
+.voiceRow{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0;
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+.voiceRow:first-of-type{ border-top: 0; }
+.muteBtn{
+  padding: 6px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(0,0,0,.20);
+  color: rgba(255,255,255,.90);
+}

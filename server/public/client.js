@@ -48,6 +48,8 @@ const legalBtn = el("legalBtn");
 const nextHandBtn = el("nextHandBtn");
 
 const sortBtn = el("sortBtn");
+const micBtn = el("micBtn");
+const voicePanel = el("voicePanel");
 const pTop = el("pTop");
 const pLeft = el("pLeft");
 const pRight = el("pRight");
@@ -67,6 +69,7 @@ let currentRoom = null;
 let readySet = new Set();
 let gameState = null;
 let lastBidLogLen = 0;
+let playLock = false; // prevents double-tap spam on mobile
 let lastLegal = [];
 let sortEnabled = true;
 
@@ -115,7 +118,23 @@ function addSystem(text){
   addMsg({ from:{name:"System"}, text, ts: Date.now() });
 }
 
-function send(obj){ ws.send(JSON.stringify(obj)); }
+
+// Stable identity for reconnects
+function makeToken(){
+  try{
+    if (crypto?.randomUUID) return crypto.randomUUID();
+  }catch{}
+  const arr = new Uint8Array(16);
+  (crypto?.getRandomValues ? crypto.getRandomValues(arr) : arr.forEach((_,i)=>arr[i]=Math.floor(Math.random()*256)));
+  return [...arr].map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+let clientToken = localStorage.getItem("blot_token");
+if (!clientToken){
+  clientToken = makeToken();
+  localStorage.setItem("blot_token", clientToken);
+}
+
+function send(obj){ if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj)); }
 
 function connect(){
   const proto = location.protocol === "https:" ? "wss" : "ws";
@@ -125,14 +144,32 @@ function connect(){
     const msg = JSON.parse(ev.data);
     switch(msg.t){
       case "hello":
-        you = msg.you;
-        youEl.textContent = `You: ${you.name} (${you.id.slice(0,4)})`;
+        // Server asks for auth on connect
+        if (msg.needAuth){
+          const desiredName = (localStorage.getItem("blot_name") || nameEl.value || "").trim().slice(0,24);
+          send({ t:"auth:hello", token: clientToken, name: desiredName });
+          break;
+        }
+        if (msg.you){
+          you = msg.you;
+          youEl.textContent = `You: ${you.name} (${you.id.slice(0,4)})`;
+        }
         renderRooms(msg.rooms);
+        break;
+      case "auth:ok":
+        you = msg.you;
+        if (you?.token){
+          clientToken = you.token;
+          localStorage.setItem("blot_token", clientToken);
+        }
+        youEl.textContent = `You: ${you.name} (${you.id.slice(0,4)})`;
+        if (msg.rooms) renderRooms(msg.rooms);
         break;
       case "rooms:list":
         renderRooms(msg.rooms);
         break;
-      case "profile:ok":
+      case "profile:ok": // legacy
+
         you = msg.you;
         youEl.textContent = `You: ${you.name} (${you.id.slice(0,4)})`;
         break;
@@ -141,16 +178,19 @@ function connect(){
         break;
       case "room:join:ok":
         showRoom(msg.room);
+        if (micEnabled) { rebuildVoicePeers(); renderVoicePanel(); }
         break;
       case "room:join:error":
         alert(msg.error);
         break;
       case "room:left":
         hideRoom();
+        if (micEnabled) stopVoice();
         break;
       case "room:update":
         if (currentRoom && msg.room.id === currentRoom.id) showRoom(msg.room, true);
         send({ t:"rooms:list" });
+        if (micEnabled) { rebuildVoicePeers(); renderVoicePanel(); }
         break;
       case "room:ready:update":
         readySet = new Set(msg.ready || []);
@@ -169,6 +209,7 @@ function connect(){
           if (gameState.phase === "bidding") sfx("deal");
         }
         if ((gameState?.bidLog?.length || 0) > prevLen) sfx("bid");
+        playLock = false;
         renderGame();
         break;
       case "game:error":
@@ -198,6 +239,39 @@ function connect(){
           `tricks=${msg.breakdown.tricksCount.join("-")} melds=${msg.breakdown.melds.team0.points}-${msg.breakdown.melds.team1.points}\n` +
           `raw=${msg.breakdown.teamPointsRaw.join("-")} awarded=${msg.breakdown.awarded.join("-")} totals=${msg.totals.join("-")}\n`;
         break;
+      case "voice:offer": {
+        if (!micEnabled) break;
+        const from = msg.from;
+        if (!from || from === you?.id) break;
+        ensurePeer(from).then(async (pc)=>{
+          try{
+            await pc.setRemoteDescription(msg.offer);
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            send({ t:"voice:answer", to: from, answer: pc.localDescription });
+          }catch{}
+        });
+        break;
+      }
+      case "voice:answer": {
+        if (!micEnabled) break;
+        const from = msg.from;
+        const pc = peers.get(from);
+        if (pc){
+          try{ pc.setRemoteDescription(msg.answer); }catch{}
+        }
+        break;
+      }
+      case "voice:ice": {
+        if (!micEnabled) break;
+        const from = msg.from;
+        const pc = peers.get(from);
+        if (pc && msg.candidate){
+          try{ pc.addIceCandidate(msg.candidate); }catch{}
+        }
+        break;
+      }
+
       default:
         // ignore
         break;
@@ -509,6 +583,172 @@ function connectAndHook(){
   });
 }
 /* Instead of double listeners chaos, we just handle in one connect(). */
+
+// -------------------- Voice chat (WebRTC) --------------------
+let micEnabled = false;
+let localStream = null;
+const peers = new Map(); // peerId -> RTCPeerConnection
+const remoteAudios = new Map(); // peerId -> HTMLAudioElement
+
+// iOS/Safari needs a user gesture to start audio context; we already have button clicks.
+document.body.addEventListener("click", ()=>{ try{ audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)(); }catch{} }, { once:true });
+
+async function startVoice(){
+  if (micEnabled) return;
+  micEnabled = true;
+  micBtn && (micBtn.textContent = "🔊 Mic ON");
+
+  try{
+    localStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation:true, noiseSuppression:true, autoGainControl:true }
+    });
+  }catch(e){
+    micEnabled = false;
+    micBtn && (micBtn.textContent = "🎤 Mic");
+    addSystem("Mic permission denied.");
+    return;
+  }
+
+  rebuildVoicePeers();
+  renderVoicePanel();
+}
+
+function stopVoice(){
+  micEnabled = false;
+  micBtn && (micBtn.textContent = "🎤 Mic");
+  for (const [id, pc] of peers.entries()){
+    try{ pc.close(); }catch{}
+  }
+  peers.clear();
+  for (const [id, el] of remoteAudios.entries()){
+    try{ el.srcObject = null; el.remove(); }catch{}
+  }
+  remoteAudios.clear();
+  if (localStream){
+    for (const t of localStream.getTracks()) try{ t.stop(); }catch{}
+    localStream = null;
+  }
+  renderVoicePanel();
+}
+
+function rtcConfig(){
+  // Public STUN so peers can connect through NAT. No server needed for basic voice.
+  return { iceServers: [{ urls: "stun:stun.cloudflare.com:3478" }] };
+}
+
+async function ensurePeer(peerId){
+  if (peers.has(peerId)) return peers.get(peerId);
+  const pc = new RTCPeerConnection(rtcConfig());
+
+  if (localStream){
+    for (const track of localStream.getTracks()) pc.addTrack(track, localStream);
+  }
+
+  pc.onicecandidate = (e)=>{
+    if (e.candidate){
+      send({ t:"voice:ice", to: peerId, candidate: e.candidate });
+    }
+  };
+
+  pc.ontrack = (e)=>{
+    if (remoteAudios.has(peerId)) return;
+    const audio = document.createElement("audio");
+    audio.autoplay = true;
+    audio.playsInline = true;
+    audio.srcObject = e.streams[0];
+    audio.dataset.peerId = peerId;
+    document.body.appendChild(audio);
+    remoteAudios.set(peerId, audio);
+  };
+
+  peers.set(peerId, pc);
+  return pc;
+}
+
+function seatedPlayerIds(){
+  if (!currentRoom?.seats) return [];
+  return currentRoom.seats.filter(Boolean).map(s => s.id);
+}
+
+async function rebuildVoicePeers(){
+  if (!micEnabled || !you?.id) return;
+  // Only connect to other seated players
+  const ids = seatedPlayerIds().filter(id => id !== you.id);
+  // Close peers no longer needed
+  for (const id of peers.keys()){
+    if (!ids.includes(id)){
+      try{ peers.get(id).close(); }catch{}
+      peers.delete(id);
+    }
+  }
+
+  for (const otherId of ids){
+    const pc = await ensurePeer(otherId);
+    // choose initiator to avoid offer glare (stable string compare)
+    const initiator = String(you.id) < String(otherId);
+    if (initiator){
+      try{
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        send({ t:"voice:offer", to: otherId, offer: pc.localDescription });
+      }catch{}
+    }
+  }
+}
+
+function renderVoicePanel(){
+  if (!voicePanel) return;
+  voicePanel.innerHTML = "";
+  if (!currentRoom) return;
+
+  const ids = seatedPlayerIds();
+  if (!ids.length) return;
+
+  const title = document.createElement("div");
+  title.className = "voiceTitle";
+  title.textContent = "Voice";
+  voicePanel.appendChild(title);
+
+  for (const id of ids){
+    const row = document.createElement("div");
+    row.className = "voiceRow";
+    const name = currentRoom.seats.find(s=>s?.id===id)?.name || id.slice(0,4);
+    const label = document.createElement("span");
+    label.textContent = (id===you?.id) ? `${name} (you)` : name;
+
+    const btn = document.createElement("button");
+    btn.className = "muteBtn";
+    if (id === you?.id){
+      btn.textContent = micEnabled ? "Mute me" : "Mic off";
+      btn.disabled = !micEnabled;
+      btn.addEventListener("click", ()=>{
+        if (!localStream) return;
+        const enabled = localStream.getAudioTracks().some(t=>t.enabled);
+        for (const t of localStream.getAudioTracks()) t.enabled = !enabled;
+        btn.textContent = enabled ? "Unmute me" : "Mute me";
+      });
+    } else {
+      const audio = remoteAudios.get(id);
+      const muted = audio ? audio.muted : false;
+      btn.textContent = muted ? "Unmute" : "Mute";
+      btn.addEventListener("click", ()=>{
+        const a = remoteAudios.get(id);
+        if (a){ a.muted = !a.muted; }
+        btn.textContent = (a && a.muted) ? "Unmute" : "Mute";
+      });
+    }
+
+    row.appendChild(label);
+    row.appendChild(btn);
+    voicePanel.appendChild(row);
+  }
+}
+
+micBtn?.addEventListener("click", ()=>{
+  if (!micEnabled) startVoice();
+  else stopVoice();
+});
+
 connect();
 
 // Patch: add handling for game:legal in the active ws

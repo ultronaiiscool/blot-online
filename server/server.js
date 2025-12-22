@@ -191,6 +191,66 @@ function beloteHolders(hands, trumpSuit){
 const clients = new Map(); // ws -> {id,name,roomId,seat}
 const rooms = new Map();   // roomId -> room
 
+// Reconnect support (client token -> stable player id)
+const tokens = new Map(); // token -> { id, name, roomId, seat, lastSeen }
+const purgeTimers = new Map(); // playerId -> timeout
+
+function getOrCreateIdentity(token, name){
+  const clean = (typeof token === "string") ? token.trim() : "";
+  const nm = (typeof name === "string" && name.trim()) ? name.trim().slice(0,24) : null;
+
+  if (clean && tokens.has(clean)){
+    const t = tokens.get(clean);
+    if (nm) t.name = nm;
+    t.lastSeen = now();
+    return { token: clean, id: t.id, name: t.name };
+  }
+
+  // create new
+  const newToken = clean || crypto.randomBytes(16).toString("hex");
+  const id = nanoid(10);
+  const finalName = nm || `Player-${id.slice(0,4)}`;
+  tokens.set(newToken, { id, name: finalName, roomId: null, seat: null, lastSeen: now() });
+  return { token: newToken, id, name: finalName };
+}
+
+function wsForPlayer(roomId, playerId){
+  for (const [ws, info] of clients.entries()){
+    if (info?.roomId === roomId && info?.id === playerId) return ws;
+  }
+  return null;
+}
+
+function markDisconnected(room, playerId){
+  const idx = seatIndexForPlayer(room, playerId);
+  if (idx === -1) return;
+  if (!room.seats[idx]) return;
+  room.seats[idx].disconnectedAt = now();
+
+  // start purge timer (grace period) so refresh doesn't nuke the game
+  if (purgeTimers.has(playerId)) clearTimeout(purgeTimers.get(playerId));
+  const t = setTimeout(()=>{
+    const r = rooms.get(room.id);
+    if (!r) return;
+    const i = seatIndexForPlayer(r, playerId);
+    if (i !== -1 && r.seats[i]?.disconnectedAt){
+      // remove after grace period
+      r.seats[i] = null;
+      r.state.ready.delete(playerId);
+      // if player never came back mid-hand, forfeit -> reset to lobby (simple)
+      if (r.state.phase !== "lobby"){
+        r.state = makeInitialGameState();
+      }
+      broadcastRoom(r.id, { t:"room:update", room: roomSummary(r) });
+      broadcastRoom(r.id, { t:"game:state", state: publicGameState(r, null) });
+      const any = r.seats.some(Boolean) || r.spectators.length > 0;
+      if (!any) rooms.delete(r.id);
+    }
+    purgeTimers.delete(playerId);
+  }, 3 * 60 * 1000); // 3 minutes
+  purgeTimers.set(playerId, t);
+}
+
 function makeRoom({ targetScore = 301, turnSeconds = 20, isPrivate = false, password = "" } = {}){
   const id = nanoid(6).toUpperCase();
   return {
@@ -242,7 +302,7 @@ function makeInitialGameState(){
 }
 
 function roomSummary(room){
-  const seats = room.seats.map(s => s ? ({ id:s.id, name:s.name }) : null);
+  const seats = room.seats.map(s => s ? ({ id:s.id, name:s.name, disconnected: Boolean(s.disconnectedAt) }) : null);
   return {
     id: room.id,
     createdAt: room.createdAt,
@@ -303,7 +363,15 @@ function removeFromRoom(ws){
   if (!any) rooms.delete(room.id);
   info.roomId = null;
   info.seat = null;
+
+  if (info.token && tokens.has(info.token)){
+    const t = tokens.get(info.token);
+    t.roomId = null;
+    t.seat = null;
+    t.lastSeen = now();
+  }
 }
+
 
 function joinRoom(ws, roomId, { password = "" } = {}){
   const info = clients.get(ws);
@@ -316,15 +384,37 @@ function joinRoom(ws, roomId, { password = "" } = {}){
     }
   }
 
-  const seat = room.seats.findIndex(s => s === null);
-  if (seat !== -1){
-    room.seats[seat] = { id:info.id, name:info.name, joinedAt: now() };
-    info.seat = seat;
+  const existing = seatIndexForPlayer(room, info.id);
+  if (existing !== -1){
+    // reconnect or rejoin: keep their old seat
+    room.seats[existing].name = info.name;
+    delete room.seats[existing].disconnectedAt;
+    info.seat = existing;
   } else {
-    room.spectators.push({ id:info.id, name:info.name, joinedAt: now() });
-    info.seat = null;
+    const seat = room.seats.findIndex(s => s === null);
+    if (seat !== -1){
+      room.seats[seat] = { id:info.id, name:info.name, joinedAt: now() };
+      info.seat = seat;
+    } else {
+      room.spectators.push({ id:info.id, name:info.name, joinedAt: now() });
+      info.seat = null;
+    }
   }
   info.roomId = roomId;
+
+  // persist last room for reconnect token
+  if (info.token && tokens.has(info.token)){
+    const t = tokens.get(info.token);
+    t.roomId = roomId;
+    t.seat = info.seat;
+    t.name = info.name;
+    t.lastSeen = now();
+  }
+
+  if (purgeTimers.has(info.id)){
+    clearTimeout(purgeTimers.get(info.id));
+    purgeTimers.delete(info.id);
+  }
 
   broadcastRoom(roomId, { t:"room:update", room: roomSummary(room) });
   return { ok:true, room: roomSummary(room) };
@@ -918,10 +1008,11 @@ function startGame(room){
 
 // -------------------- websocket --------------------
 wss.on("connection", (ws)=>{
-  const id = nanoid(10);
-  clients.set(ws, { id, name: `Player-${id.slice(0,4)}`, roomId:null, seat:null });
+  // provisional identity until auth:hello
+  const tmpId = nanoid(10);
+  clients.set(ws, { id: tmpId, name: `Player-${tmpId.slice(0,4)}`, roomId:null, seat:null, token:null, authed:false });
 
-  send(ws, { t:"hello", you:{ id, name: clients.get(ws).name }, rooms: listPublicRooms() });
+  send(ws, { t:"hello", needAuth:true, rooms: listPublicRooms() });
 
   ws.on("message", (data)=>{
     let msg;
@@ -931,9 +1022,78 @@ wss.on("connection", (ws)=>{
     const info = clients.get(ws);
     if (!info) return;
 
+    // Require auth first (stable player id for reconnect)
+    if (!info.authed && msg.t !== "auth:hello"){
+      return send(ws, { t:"error", error:"Not authenticated yet. Send auth:hello first." });
+    }
+
     const room = info.roomId ? rooms.get(info.roomId) : null;
 
     switch(msg.t){
+
+      case "auth:hello": {
+        const ident = getOrCreateIdentity(msg.token, msg.name);
+        info.id = ident.id;
+        info.name = ident.name;
+        info.token = ident.token;
+        info.authed = true;
+
+        // cancel any purge timer for this player (they came back)
+        if (purgeTimers.has(info.id)){
+          clearTimeout(purgeTimers.get(info.id));
+          purgeTimers.delete(info.id);
+        }
+
+        // Auto-rejoin last room/seat if possible
+        const t = tokens.get(info.token);
+        if (t?.roomId && rooms.has(t.roomId)){
+          const r = rooms.get(t.roomId);
+          const idx = seatIndexForPlayer(r, info.id);
+          if (idx !== -1){
+            // reclaim seat
+            r.seats[idx].name = info.name;
+            delete r.seats[idx].disconnectedAt;
+            info.roomId = r.id;
+            info.seat = idx;
+            broadcastRoom(r.id, { t:"room:update", room: roomSummary(r) });
+            broadcastRoom(r.id, { t:"game:state", state: publicGameState(r, null) });
+          }
+        }
+
+        send(ws, { t:"auth:ok", you:{ id: info.id, name: info.name, token: info.token }, rooms: listPublicRooms() });
+        // if already in room, send state
+        if (info.roomId){
+          const r = rooms.get(info.roomId);
+          if (r){
+            send(ws, { t:"room:update", room: roomSummary(r) });
+            send(ws, { t:"game:state", state: publicGameState(r, info.id) });
+          }
+        }
+        break;
+      }
+
+      case "voice:offer":
+      case "voice:answer":
+      case "voice:ice": {
+        if (!room) return send(ws, { t:"error", error:"Not in a room." });
+        const to = String(msg.to || "");
+        if (!to) return send(ws, { t:"error", error:"Missing 'to'." });
+        const target = wsForPlayer(room.id, to);
+        if (!target) return send(ws, { t:"error", error:"Target not connected." });
+        // only allow voice between seated players
+        const fromSeat = seatIndexForPlayer(room, info.id);
+        const toSeat = seatIndexForPlayer(room, to);
+        if (fromSeat === -1 || toSeat === -1) return send(ws, { t:"error", error:"Voice is for seated players only." });
+
+        const payload = { t: msg.t, from: info.id };
+        if (msg.t === "voice:offer") payload.offer = msg.offer;
+        if (msg.t === "voice:answer") payload.answer = msg.answer;
+        if (msg.t === "voice:ice") payload.candidate = msg.candidate;
+        send(target, payload);
+        break;
+      }
+
+
       case "profile:set": {
         const name = String(msg.name||"").trim().slice(0,20) || info.name;
         info.name = name;
@@ -1153,7 +1313,32 @@ wss.on("connection", (ws)=>{
   });
 
   ws.on("close", ()=>{
-    removeFromRoom(ws);
+    const info = clients.get(ws);
+
+    if (info?.authed && info?.token && tokens.has(info.token)){
+      const t = tokens.get(info.token);
+      t.lastSeen = now();
+      t.roomId = info.roomId;
+      t.seat = info.seat;
+      t.name = info.name;
+    }
+
+    if (info?.roomId){
+      const room = rooms.get(info.roomId);
+      if (room){
+        const idx = seatIndexForPlayer(room, info.id);
+        if (idx !== -1){
+          // keep the seat for a short grace period
+          markDisconnected(room, info.id);
+          broadcastRoom(room.id, { t:"room:update", room: roomSummary(room) });
+          broadcastRoom(room.id, { t:"game:state", state: publicGameState(room, null) });
+        } else {
+          // spectator disconnect
+          room.spectators = room.spectators.filter(x => x.id !== info.id);
+          broadcastRoom(room.id, { t:"room:update", room: roomSummary(room) });
+        }
+      }
+    }
     clients.delete(ws);
   });
 });
