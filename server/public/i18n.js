@@ -15,7 +15,20 @@ export const I18N = {
     yourTurn: "Your turn",
     waitTurn: "Waiting…",
     queued: "Queued for Quick Match",
-    signInGoogle: "Sign in with Google"
+    signInGoogle: "Sign in with Google",
+    signedInAs: "Signed in as",
+    signOut: "Sign out",
+    botDifficulty: "Bots",
+    botOff: "Off",
+    botEasy: "Easy",
+    botNormal: "Normal",
+    botHard: "Hard",
+    copyLink: "Copy link",
+    copied: "Copied!",
+    shareRoom: "Share room",
+    errorsTurn: "Not your turn",
+    errorsRoomNotFound: "Room not found",
+    errorsRoomFull: "Room is full"
   },
   hy: {
     title: "Հայկական Բլոտ",
@@ -33,7 +46,20 @@ export const I18N = {
     yourTurn: "Քո հերթն է",
     waitTurn: "Սպասում…",
     queued: "Հերթում եք (արագ խաղ)",
-    signInGoogle: "Մուտք Google-ով"
+    signInGoogle: "Մուտք Google-ով",
+    signedInAs: "Մուտք գործած",
+    signOut: "Ելք",
+    botDifficulty: "Բոտեր",
+    botOff: "Անջատ",
+    botEasy: "Թեթև",
+    botNormal: "Միջին",
+    botHard: "Դժվար",
+    copyLink: "Պատճենել հղումը",
+    copied: "Պատճենվեց!",
+    shareRoom: "Կիսվել սենյակով",
+    errorsTurn: "Քո հերթը չէ",
+    errorsRoomNotFound: "Սենյակը չի գտնվել",
+    errorsRoomFull: "Սենյակը լի է"
   },
   ru: {
     title: "Армянский Блот",
@@ -51,6 +77,19 @@ export const I18N = {
     yourTurn: "Ваш ход",
     waitTurn: "Ожидание…",
     queued: "В очереди (быстрая игра)",
-    signInGoogle: "Войти через Google"
+    signInGoogle: "Войти через Google",
+    signedInAs: "Вошли как",
+    signOut: "Выйти",
+    botDifficulty: "Боты",
+    botOff: "Выкл",
+    botEasy: "Легко",
+    botNormal: "Норм",
+    botHard: "Сложно",
+    copyLink: "Скопировать ссылку",
+    copied: "Скопировано!",
+    shareRoom: "Поделиться комнатой",
+    errorsTurn: "Не ваш ход",
+    errorsRoomNotFound: "Комната не найдена",
+    errorsRoomFull: "Комната заполнена"
   }
 };

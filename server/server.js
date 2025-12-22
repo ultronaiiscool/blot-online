@@ -1,6 +1,7 @@
 import express from "express";
 import http from "http";
 import { WebSocketServer } from "ws";
+import { OAuth2Client } from "google-auth-library";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -13,9 +14,15 @@ const wss = new WebSocketServer({ server });
 
 app.use(express.static(path.join(__dirname, "public")));
 
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
+const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
+
+
 // ---- Rooms + Simple Game Loop (Step D base) ----
 const rooms = new Map(); // code -> room
 const clients = new Map(); // ws -> client
+const profilesByToken = new Map(); // token -> {name, picture, sub, email}
+
 
 let quickQueue = []; // array of client ids waiting for quick match
 
@@ -44,6 +51,49 @@ function makeDeck(){
   return deck;
 }
 
+function createBot(difficulty="normal"){
+  const id = "bot-" + Math.random().toString(16).slice(2) + Date.now().toString(16);
+  const names = {
+    easy: ["AramBot","LilitBot","VardanBot","AniBot"],
+    normal: ["BlotBot","KilikiaBot","YerevanBot","TigranBot"],
+    hard: ["GrandBot","CleverBot","SharpsuitBot","TricksterBot"]
+  };
+  const pool = names[difficulty] || names.normal;
+  const name = pool[Math.floor(Math.random()*pool.length)];
+  return { id, ws: null, name, room: null, isBot: true, difficulty };
+}
+
+function botChooseCard(hand, difficulty="normal"){
+  // No full Belote legality yet. Pick random for now.
+  if (!hand || hand.length === 0) return null;
+  return hand[Math.floor(Math.random()*hand.length)];
+}
+
+function maybeRunBotTurn(room){
+  const game = room.game;
+  if (!game) return;
+  const current = room.players[game.turn];
+  if (!current || !current.isBot) return;
+
+  setTimeout(()=>{
+    const bot = room.players[game.turn];
+    if (!bot || !bot.isBot || !room.game) return;
+    const hand = room.game.hands[bot.id] || [];
+    const card = botChooseCard(hand, bot.difficulty);
+    if (!card) return;
+    // play via same logic as human
+    hand.splice(hand.indexOf(card), 1);
+    room.game.trick.push({ seat: room.game.turn, playerId: bot.id, card });
+    room.game.turn = (room.game.turn + 1) % room.players.length;
+    if (room.game.trick.length >= room.players.length){
+      room.game.trick = [];
+    }
+    broadcastRoom(room);
+    // chain
+    maybeRunBotTurn(room);
+  }, 450);
+}
+
 function startGame(room){
   const deck = makeDeck();
   const hands = {};
@@ -60,6 +110,7 @@ function startGame(room){
 }
 
 function safeSend(ws, obj){
+  if (!ws) return;
   try { ws.send(JSON.stringify(obj)); } catch {}
 }
 
@@ -68,7 +119,7 @@ function broadcastRoom(room){
     type: "state:update",
     room: {
       code: room.code,
-      players: room.players.map(p => ({ id: p.id, name: p.name })),
+      players: room.players.map(p => ({ id: p.id, name: p.name, picture: p.picture || null, isBot: !!p.isBot })),
       game: room.game
     }
   };
@@ -96,31 +147,7 @@ function seatIndex(room, clientId){
   return room.players.findIndex(p => p.id === clientId);
 }
 
-function handleQuickJoin(client){
-  // remove if already queued
-  quickQueue = quickQueue.filter(id => id !== client.id);
-  quickQueue.push(client.id);
 
-  // if at least 4, match first 4
-  if (quickQueue.length >= 4){
-    const ids = quickQueue.splice(0, 4);
-    const room = createRoom();
-    for (const id of ids){
-      const c = [...clients.values()].find(x => x.id === id);
-      if (!c) continue;
-      // if already in room, remove
-      if (c.room) leaveRoom(c);
-      room.players.push(c);
-      c.room = room;
-    }
-    if (room.players.length === 4) startGame(room);
-    broadcastRoom(room);
-  } else {
-    safeSend(client.ws, { type:"quick:queued", position: quickQueue.length });
-  }
-}
-
-// ---- WebSocket ----
 wss.on("connection", (ws) => {
   const id = (globalThis.crypto?.randomUUID?.() ?? (Math.random().toString(16).slice(2)+Date.now().toString(16)));
   const client = { id, ws, name: "Guest", room: null };
@@ -128,7 +155,7 @@ wss.on("connection", (ws) => {
 
   safeSend(ws, { type:"hello:need" });
 
-  ws.on("message", (raw) => {
+  ws.on("message", async (raw) => {
     let msg;
     try { msg = JSON.parse(raw.toString()); } catch { return; }
     if (!msg || !msg.type) return;
@@ -136,7 +163,26 @@ wss.on("connection", (ws) => {
     switch (msg.type){
 
       case "hello": {
-        client.name = (msg.name || "Guest").toString().slice(0, 24);
+        const token = (msg.token || "").toString();
+        if (token){
+          client.token = token;
+          const prof = profilesByToken.get(token);
+          if (prof && prof.name){
+            client.name = prof.name;
+            client.picture = prof.picture || null;
+            client.sub = prof.sub || null;
+            client.email = prof.email || null;
+          } else {
+            client.name = (msg.name || "Guest").toString().slice(0, 24);
+            // client may send cached google profile; accept for UX but not verified
+            if (msg.google && msg.google.name){
+              client.name = msg.google.name.toString().slice(0,24);
+              client.picture = msg.google.picture || null;
+            }
+          }
+        } else {
+          client.name = (msg.name || "Guest").toString().slice(0, 24);
+        }
         safeSend(ws, { type:"hello:ok", id: client.id, name: client.name });
         break;
       }
@@ -175,8 +221,8 @@ wss.on("connection", (ws) => {
       }
 
       case "room:quick": {
-        // just queue for now (no bots in Step D)
-        handleQuickJoin(client);
+        const botLevel = (msg.botLevel || "off").toString();
+        handleQuickJoin(client, botLevel);
         break;
       }
 
@@ -214,6 +260,51 @@ wss.on("connection", (ws) => {
         broadcastRoom(room);
         break;
       }
+
+      case "auth:google": {
+  if (!googleClient){
+    safeSend(ws, { type:"error", message:"Google Sign-In not configured on server (GOOGLE_CLIENT_ID missing)." });
+    return;
+  }
+  const credential = (msg.credential || "").toString();
+  try {
+    const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID });
+    const payload = ticket.getPayload();
+    const profile = {
+      sub: payload.sub,
+      email: payload.email || null,
+      name: payload.name || "Google User",
+      picture: payload.picture || null
+    };
+    // store by token if present
+    if (client.token){
+      profilesByToken.set(client.token, profile);
+    }
+    client.name = profile.name.toString().slice(0,24);
+    client.picture = profile.picture;
+    client.sub = profile.sub;
+    client.email = profile.email;
+
+    safeSend(ws, { type:"auth:ok", profile });
+    // update room state for others
+    if (client.room) broadcastRoom(client.room);
+  } catch (e){
+    safeSend(ws, { type:"error", message:"Google Sign-In failed (token verification)." });
+  }
+  break;
+}
+
+case "auth:signout": {
+  if (client.token){
+    profilesByToken.delete(client.token);
+  }
+  client.sub = null;
+  client.email = null;
+  client.picture = null;
+  safeSend(ws, { type:"auth:ok", profile: null });
+  if (client.room) broadcastRoom(client.room);
+  break;
+}
 
       default:
         break;

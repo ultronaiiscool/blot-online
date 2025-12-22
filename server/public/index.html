@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Armenian Blot</title>
   <link rel="stylesheet" href="style.css" />
+  <meta name="google-client-id" content="835310029874-7m183e2verp9im9n2ce0og34l8jom3s9.apps.googleusercontent.com" />
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -34,6 +36,20 @@
       </div>
 
       <div class="buttons">
+        <div class="inline">
+          <label id="lblBots" class="lbl" for="botLevelSelect">Bots</label>
+          <select id="botLevelSelect" class="select">
+            <option value="off">Off</option>
+            <option value="easy">Easy</option>
+            <option value="normal" selected>Normal</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+        <div class="inline grow">
+          <button id="googleSignInBtn" class="btn">Sign in with Google</button>
+          <button id="googleSignOutBtn" class="btn" hidden>Sign out</button>
+        </div>
+
 <button id="googleSignInBtn" class="btn">Sign in with Google</button>
         <button id="createRoomBtn" class="btn primary">Create Room</button>
         <button id="joinRoomBtn" class="btn">Join Room</button>
@@ -43,6 +59,13 @@
 
       <div id="status" class="status">Not connected yet.</div>
       <div id="roomInfo" class="roominfo" hidden></div>
+<div id="shareWrap" class="share" hidden>
+  <div id="shareTitle" class="shareTitle">Share room</div>
+  <div class="shareRow">
+    <input id="shareLink" class="input" readonly />
+    <button id="copyLinkBtn" class="btn">Copy link</button>
+  </div>
+</div>
     </section>
 
     <section class="card panel">
@@ -59,6 +82,7 @@
       <div id="trick" class="trick"></div>
     </section>
   </main>
+<div id="toast" class="toast" hidden></div>
 
   <div class="build">BUILD: 2025-STEP-D-CLEAN</div>
 

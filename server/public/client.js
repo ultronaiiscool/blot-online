@@ -18,6 +18,17 @@ const nameInput = $("nameInput");
 const roomCodeInput = $("roomCodeInput");
 const langSelect = $("langSelect");
 
+const subtitleText = $("subtitleText");
+const botLevelSelect = $("botLevelSelect");
+const shareWrap = $("shareWrap");
+const shareTitle = $("shareTitle");
+const shareLink = $("shareLink");
+const copyLinkBtn = $("copyLinkBtn");
+const toastEl = $("toast");
+const googleSignInBtn = $("googleSignInBtn");
+const googleSignOutBtn = $("googleSignOutBtn");
+
+
 const createRoomBtn = $("createRoomBtn");
 const joinRoomBtn = $("joinRoomBtn");
 const quickMatchBtn = $("quickMatchBtn");
@@ -25,11 +36,16 @@ const leaveBtn = $("leaveBtn");
 
 let ws;
 let myId = null;
+let playerToken = localStorage.getItem("playerToken");
+if (!playerToken){ playerToken = Math.random().toString(16).slice(2)+Date.now().toString(16); localStorage.setItem("playerToken", playerToken); }
+let googleProfile = null;
+try { googleProfile = JSON.parse(localStorage.getItem("googleProfile")||"null"); } catch { googleProfile = null; }
 let myName = localStorage.getItem("playerName") || "";
 let lang = localStorage.getItem("lang") || "en";
 
 nameInput.value = myName;
 langSelect.value = lang;
+if (botLevelSelect){ botLevelSelect.value = botLevel; }
 
 nameInput.addEventListener("input", () => {
   myName = (nameInput.value || "").trim();
@@ -56,6 +72,18 @@ function applyLang(){
   quickMatchBtn.textContent = t("quickMatch");
   leaveBtn.textContent = t("leave");
   playersTitle.textContent = t("players");
+  if (subtitleText) subtitleText.textContent = t("subtitle");
+  const lblBots = $("lblBots"); if (lblBots) lblBots.textContent = t("botDifficulty");
+  if (botLevelSelect){
+    botLevelSelect.options[0].textContent = t("botOff");
+    botLevelSelect.options[1].textContent = t("botEasy");
+    botLevelSelect.options[2].textContent = t("botNormal");
+    botLevelSelect.options[3].textContent = t("botHard");
+  }
+  if (googleSignInBtn) googleSignInBtn.textContent = t("signInGoogle");
+  if (googleSignOutBtn) googleSignOutBtn.textContent = t("signOut");
+  if (shareTitle) shareTitle.textContent = t("shareRoom");
+  if (copyLinkBtn) copyLinkBtn.textContent = t("copyLink");
 }
 applyLang();
 
@@ -67,7 +95,7 @@ function connect(){
 
   ws.addEventListener("open", () => {
     statusEl.textContent = "Connected.";
-    send({ type:"hello", name: myName || "Guest" });
+    send({ type:"hello", name: myName || "Guest", token: playerToken, google: googleProfile });
   });
 
   ws.addEventListener("message", (ev) => {
@@ -82,6 +110,19 @@ function connect(){
 
     if (msg.type === "quick:queued"){
       statusEl.textContent = `${t("queued")} (#${msg.position})`;
+      return;
+    }
+
+    if (msg.type === "auth:ok"){
+      googleProfile = msg.profile;
+      localStorage.setItem("googleProfile", JSON.stringify(googleProfile));
+      // Update display name to Google name
+      if (googleProfile?.name){
+        myName = googleProfile.name;
+        nameInput.value = myName;
+        localStorage.setItem("playerName", myName);
+      }
+      setSignedInUI(googleProfile);
       return;
     }
 
@@ -117,7 +158,7 @@ joinRoomBtn.addEventListener("click", () => {
 });
 
 quickMatchBtn.addEventListener("click", () => {
-  send({ type:"room:quick" });
+  send({ type:"room:quick", botLevel });
 });
 
 leaveBtn.addEventListener("click", () => {
@@ -139,14 +180,38 @@ function render(){
   roomInfoEl.hidden = false;
   roomInfoEl.textContent = `Room: ${lastRoomState.code}`;
 
-  // players
-  playersEl.innerHTML = "";
-  for (const p of lastRoomState.players){
-    const chip = document.createElement("div");
-    chip.className = "playerChip" + (p.id === myId ? " me" : "");
-    chip.textContent = p.name + (p.id === myId ? " (you)" : "");
-    playersEl.appendChild(chip);
+  if (shareWrap && shareLink){
+    const url = `${location.origin}?room=${encodeURIComponent(lastRoomState.code)}`;
+    shareLink.value = url;
+    shareWrap.hidden = false;
   }
+
+  // players
+playersEl.innerHTML = "";
+const gameTurnSeat = lastRoomState.game?.turn ?? -1;
+lastRoomState.players.forEach((p, idx)=>{
+  const chip = document.createElement("div");
+  chip.className = "playerChip" + (p.id === myId ? " me" : "");
+  if (idx === gameTurnSeat) chip.style.borderColor = "rgba(16,185,129,.65)";
+  const row = document.createElement("div");
+  row.style.display = "flex";
+  row.style.alignItems = "center";
+  row.style.gap = "8px";
+  const avatar = document.createElement("div");
+  avatar.className = "avatar";
+  if (p.picture){
+    avatar.style.backgroundImage = `url(${p.picture})`;
+  } else {
+    avatar.textContent = (p.name || "?").slice(0,1).toUpperCase();
+  }
+  const name = document.createElement("div");
+  name.textContent = p.name + (p.isBot ? " [BOT]" : "") + (p.id === myId ? " (you)" : "");
+  row.appendChild(avatar);
+  row.appendChild(name);
+  chip.appendChild(row);
+  playersEl.appendChild(chip);
+});
+
 
   const game = lastRoomState.game;
   if (!game){
@@ -190,3 +255,95 @@ const googleBtn = document.getElementById("googleSignInBtn");
 if (googleBtn){
   googleBtn.onclick = () => alert("Google Sign-In will be added next step.");
 }
+
+
+function toast(msg, ms=1400){
+  if (!toastEl) return;
+  toastEl.textContent = msg;
+  toastEl.hidden = false;
+  clearTimeout(toastEl._t);
+  toastEl._t = setTimeout(()=>{ toastEl.hidden = true; }, ms);
+}
+
+async function copyText(txt){
+  try {
+    await navigator.clipboard.writeText(txt);
+    toast(t("copied"));
+  } catch {
+    // fallback
+    const ta = document.createElement("textarea");
+    ta.value = txt;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    ta.remove();
+    toast(t("copied"));
+  }
+}
+
+if (botLevelSelect){
+  botLevelSelect.addEventListener("change", ()=>{
+    botLevel = botLevelSelect.value;
+    localStorage.setItem("botLevel", botLevel);
+  });
+}
+
+if (copyLinkBtn){ copyLinkBtn.addEventListener('click', ()=> copyText(shareLink.value)); }
+
+const params = new URLSearchParams(location.search);
+const roomParam = params.get("room");
+if (roomParam && roomCodeInput){
+  roomCodeInput.value = roomParam.toUpperCase();
+}
+
+
+function setSignedInUI(profile){
+  if (!googleSignInBtn || !googleSignOutBtn) return;
+  const signedIn = !!profile;
+  googleSignInBtn.hidden = signedIn;
+  googleSignOutBtn.hidden = !signedIn;
+  if (signedIn){
+    toast(`${t("signedInAs")}: ${profile.name}`);
+  }
+}
+
+function initGoogle(){
+  const meta = document.querySelector('meta[name="google-client-id"]');
+  const clientId = meta?.content;
+  if (!clientId || clientId.includes("PUT_GOOGLE_CLIENT_ID_HERE")){
+    // Not configured; keep button but show hint
+    if (googleSignInBtn){
+      googleSignInBtn.addEventListener("click", ()=> toast("Set Google Client ID in index.html meta tag (Step B)."));
+    }
+    return;
+  }
+
+  // GIS button render
+  if (window.google?.accounts?.id){
+    google.accounts.id.initialize({
+      client_id: clientId,
+      callback: async (resp) => {
+        // resp.credential is an ID token (JWT). Send to server for verification.
+        send({ type:"auth:google", credential: resp.credential });
+      }
+    });
+
+    // render button
+    if (googleSignInBtn){
+      google.accounts.id.renderButton(googleSignInBtn, { theme: "outline", size: "large", width: 240 });
+    }
+  }
+}
+
+if (googleSignOutBtn){
+  googleSignOutBtn.addEventListener("click", ()=>{
+    localStorage.removeItem("googleProfile");
+    googleProfile = null;
+    setSignedInUI(null);
+    // Inform server
+    send({ type:"auth:signout" });
+  });
+}
+
+setSignedInUI(googleProfile);
+initGoogle();

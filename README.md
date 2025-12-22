@@ -30,3 +30,37 @@ Open:
 - Centralized all UI strings in `i18n.js`
 - English / Armenian / Russian complete
 - Language selector fully wired
+
+
+## Step B: Lobby polish + Bots + Google Sign-In (secure)
+
+### Bots
+- Quick Match can fill remaining seats with bots when Bots != Off.
+- Bot play is simple (random card) until full Belote rules are implemented.
+
+### Google Sign-In
+This build supports secure Google ID token verification on the server.
+
+#### 1) Create Google OAuth Client ID
+- Create a Google Cloud project
+- Enable "OAuth consent screen"
+- Create OAuth Client ID (Web)
+- Add Authorized JavaScript origins:
+  - https://YOUR_RAILWAY_PUBLIC_URL
+  - https://YOUR_CUSTOM_DOMAIN (if used)
+- Add Authorized redirect URIs (not used for GIS ID token button, but keep consistent):
+  - https://YOUR_DOMAIN/
+
+#### 2) Configure server env var on Railway
+Set environment variable:
+- GOOGLE_CLIENT_ID = your-client-id.apps.googleusercontent.com
+
+#### 3) Configure client meta tag
+Edit:
+- server/public/index.html
+Set:
+<meta name="google-client-id" content="PUT_GOOGLE_CLIENT_ID_HERE" />
+to your real client id (same as GOOGLE_CLIENT_ID).
+
+Then redeploy.
+
