@@ -64,3 +64,16 @@ to your real client id (same as GOOGLE_CLIENT_ID).
 
 Then redeploy.
 
+
+
+## Next Step (Auth Required + Bugfixes + Bots)
+
+- Removed manual name input. Players must use Google Sign-In to play.
+- Fixed server auth handler so it cannot block gameplay.
+- Server enforces sign-in for create/join/quick/leave/play.
+- Auto-join room links after sign-in.
+- Bots remain available in Quick Match to fill seats.
+
+### Google setup (required)
+1) Set Client ID in `server/public/index.html` meta tag.
+2) Set Railway variable `GOOGLE_CLIENT_ID` to the same ID.

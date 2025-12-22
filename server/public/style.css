@@ -227,3 +227,24 @@ body{
   background-size: cover;
   background-position: center;
 }
+
+
+/* ===== NEXT STEP: Google required gate ===== */
+.signinBanner{
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(239,68,68,.35);
+  background: rgba(239,68,68,.10);
+}
+.signinTitle{
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.signinBody{
+  margin-top: 6px;
+  font-size: 12px;
+  color: rgba(255,255,255,.85);
+}

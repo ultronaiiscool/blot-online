@@ -143,7 +143,16 @@ function leaveRoom(client){
   broadcastRoom(room);
 }
 
+function requireAuth(client, ws){
+  if (!client || !client.sub){
+    safeSend(ws, { type:"error", message:"Please sign in with Google to play." });
+    return false;
+  }
+  return true;
+}
+
 function seatIndex(room, clientId){
+
   return room.players.findIndex(p => p.id === clientId);
 }
 
@@ -188,6 +197,7 @@ wss.on("connection", (ws) => {
       }
 
       case "room:create": {
+        if (!requireAuth(client, ws)) break;
         if (client.room) leaveRoom(client);
         const room = createRoom();
         room.players.push(client);
@@ -197,6 +207,7 @@ wss.on("connection", (ws) => {
       }
 
       case "room:join": {
+        if (!requireAuth(client, ws)) break;
         const code = (msg.code || "").toString().trim().toUpperCase();
         const room = rooms.get(code);
         if (!room){
@@ -216,17 +227,20 @@ wss.on("connection", (ws) => {
       }
 
       case "room:leave": {
+        if (!requireAuth(client, ws)) break;
         if (client.room) leaveRoom(client);
         break;
       }
 
       case "room:quick": {
+        if (!requireAuth(client, ws)) break;
         const botLevel = (msg.botLevel || "off").toString();
         handleQuickJoin(client, botLevel);
         break;
       }
 
       case "game:play": {
+        if (!requireAuth(client, ws)) break;
         const room = client.room;
         const game = room?.game;
         if (!room || !game) return;

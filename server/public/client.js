@@ -14,7 +14,6 @@ const lblName = $("lblName");
 const lblRoom = $("lblRoom");
 const playersTitle = $("playersTitle");
 
-const nameInput = $("nameInput");
 const roomCodeInput = $("roomCodeInput");
 const langSelect = $("langSelect");
 
@@ -33,6 +32,10 @@ const createRoomBtn = $("createRoomBtn");
 const joinRoomBtn = $("joinRoomBtn");
 const quickMatchBtn = $("quickMatchBtn");
 const leaveBtn = $("leaveBtn");
+const signinBanner = $("signinBanner");
+const signinTitle = $("signinTitle");
+const signinBody = $("signinBody");
+
 
 let ws;
 let myId = null;
@@ -40,15 +43,12 @@ let playerToken = localStorage.getItem("playerToken");
 if (!playerToken){ playerToken = Math.random().toString(16).slice(2)+Date.now().toString(16); localStorage.setItem("playerToken", playerToken); }
 let googleProfile = null;
 try { googleProfile = JSON.parse(localStorage.getItem("googleProfile")||"null"); } catch { googleProfile = null; }
-let myName = localStorage.getItem("playerName") || "";
+let myName = "";
 let lang = localStorage.getItem("lang") || "en";
 
-nameInput.value = myName;
 langSelect.value = lang;
 if (botLevelSelect){ botLevelSelect.value = botLevel; }
 
-nameInput.addEventListener("input", () => {
-  myName = (nameInput.value || "").trim();
   localStorage.setItem("playerName", myName);
 });
 
@@ -67,6 +67,8 @@ function applyLang(){
   titleEl.textContent = t("title");
   lblName.textContent = t("name");
   lblRoom.textContent = t("roomCode");
+  if (signinTitle) signinTitle.textContent = t("signInRequired");
+  if (signinBody) signinBody.textContent = t("pleaseSignIn");
   createRoomBtn.textContent = t("createRoom");
   joinRoomBtn.textContent = t("joinRoom");
   quickMatchBtn.textContent = t("quickMatch");
@@ -94,8 +96,10 @@ function connect(){
   ws = new WebSocket(`${proto}://${location.host}`);
 
   ws.addEventListener("open", () => {
+    setPlayEnabled(isAuthed());
     statusEl.textContent = "Connected.";
-    send({ type:"hello", name: myName || "Guest", token: playerToken, google: googleProfile });
+    tryAutoJoin();
+    send({ type:"hello", token: playerToken, google: googleProfile });
   });
 
   ws.addEventListener("message", (ev) => {
@@ -115,14 +119,15 @@ function connect(){
 
     if (msg.type === "auth:ok"){
       googleProfile = msg.profile;
+      setPlayEnabled(isAuthed());
       localStorage.setItem("googleProfile", JSON.stringify(googleProfile));
       // Update display name to Google name
       if (googleProfile?.name){
         myName = googleProfile.name;
-        nameInput.value = myName;
-        localStorage.setItem("playerName", myName);
+                localStorage.setItem("playerName", myName);
       }
       setSignedInUI(googleProfile);
+      tryAutoJoin();
       return;
     }
 
@@ -149,19 +154,23 @@ function send(obj){
 }
 
 createRoomBtn.addEventListener("click", () => {
+  if (!isAuthed()){ toast(t("errSignIn")); return; }
   send({ type:"room:create" });
 });
 
 joinRoomBtn.addEventListener("click", () => {
+  if (!isAuthed()){ toast(t("errSignIn")); return; }
   const code = (roomCodeInput.value || "").trim().toUpperCase();
   send({ type:"room:join", code });
 });
 
 quickMatchBtn.addEventListener("click", () => {
+  if (!isAuthed()){ toast(t("errSignIn")); return; }
   send({ type:"room:quick", botLevel });
 });
 
 leaveBtn.addEventListener("click", () => {
+  if (!isAuthed()){ toast(t("errSignIn")); return; }
   send({ type:"room:leave" });
   lastRoomState = null;
   render();
@@ -347,3 +356,34 @@ if (googleSignOutBtn){
 
 setSignedInUI(googleProfile);
 initGoogle();
+
+
+function isAuthed(){
+  return !!googleProfile;
+}
+
+function setPlayEnabled(enabled){
+  createRoomBtn.disabled = !enabled;
+  joinRoomBtn.disabled = !enabled;
+  quickMatchBtn.disabled = !enabled;
+  leaveBtn.disabled = !enabled;
+  if (signinBanner) signinBanner.hidden = enabled;
+}
+
+
+let pendingRoomJoin = null;
+try {
+  const params2 = new URLSearchParams(location.search);
+  const rp = params2.get("room");
+  if (rp){
+    pendingRoomJoin = rp.toUpperCase();
+    if (roomCodeInput) roomCodeInput.value = pendingRoomJoin;
+  }
+} catch {}
+
+function tryAutoJoin(){
+  if (pendingRoomJoin && isAuthed()){
+    send({ type:"room:join", code: pendingRoomJoin });
+    pendingRoomJoin = null;
+  }
+}

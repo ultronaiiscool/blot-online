@@ -2,7 +2,6 @@ export const I18N = {
   en: {
     title: "Armenian Blot",
     subtitle: "Online Multiplayer",
-    name: "Name",
     roomCode: "Room Code",
     createRoom: "Create Room",
     joinRoom: "Join Room",
@@ -18,6 +17,8 @@ export const I18N = {
     signInGoogle: "Sign in with Google",
     signedInAs: "Signed in as",
     signOut: "Sign out",
+    signInRequired: "Sign in required",
+    pleaseSignIn: "Please sign in with Google to play.",
     botDifficulty: "Bots",
     botOff: "Off",
     botEasy: "Easy",
@@ -26,14 +27,14 @@ export const I18N = {
     copyLink: "Copy link",
     copied: "Copied!",
     shareRoom: "Share room",
-    errorsTurn: "Not your turn",
-    errorsRoomNotFound: "Room not found",
-    errorsRoomFull: "Room is full"
+    errSignIn: "Please sign in first.",
+    errTurn: "Not your turn",
+    errRoomNotFound: "Room not found",
+    errRoomFull: "Room is full"
   },
   hy: {
     title: "Հայկական Բլոտ",
     subtitle: "Առցանց բազմախաղ",
-    name: "Անուն",
     roomCode: "Սենյակի կոդ",
     createRoom: "Սենյակ ստեղծել",
     joinRoom: "Միանալ",
@@ -49,6 +50,8 @@ export const I18N = {
     signInGoogle: "Մուտք Google-ով",
     signedInAs: "Մուտք գործած",
     signOut: "Ելք",
+    signInRequired: "Պետք է մուտք գործել",
+    pleaseSignIn: "Խաղալու համար մուտք գործեք Google-ով։",
     botDifficulty: "Բոտեր",
     botOff: "Անջատ",
     botEasy: "Թեթև",
@@ -57,14 +60,14 @@ export const I18N = {
     copyLink: "Պատճենել հղումը",
     copied: "Պատճենվեց!",
     shareRoom: "Կիսվել սենյակով",
-    errorsTurn: "Քո հերթը չէ",
-    errorsRoomNotFound: "Սենյակը չի գտնվել",
-    errorsRoomFull: "Սենյակը լի է"
+    errSignIn: "Սկզբում մուտք գործեք։",
+    errTurn: "Քո հերթը չէ",
+    errRoomNotFound: "Սենյակը չի գտնվել",
+    errRoomFull: "Սենյակը լի է"
   },
   ru: {
     title: "Армянский Блот",
     subtitle: "Онлайн мультиплеер",
-    name: "Имя",
     roomCode: "Код комнаты",
     createRoom: "Создать комнату",
     joinRoom: "Присоединиться",
@@ -80,6 +83,8 @@ export const I18N = {
     signInGoogle: "Войти через Google",
     signedInAs: "Вошли как",
     signOut: "Выйти",
+    signInRequired: "Требуется вход",
+    pleaseSignIn: "Чтобы играть, войдите через Google.",
     botDifficulty: "Боты",
     botOff: "Выкл",
     botEasy: "Легко",
@@ -88,8 +93,9 @@ export const I18N = {
     copyLink: "Скопировать ссылку",
     copied: "Скопировано!",
     shareRoom: "Поделиться комнатой",
-    errorsTurn: "Не ваш ход",
-    errorsRoomNotFound: "Комната не найдена",
-    errorsRoomFull: "Комната заполнена"
+    errSignIn: "Сначала войдите.",
+    errTurn: "Не ваш ход",
+    errRoomNotFound: "Комната не найдена",
+    errRoomFull: "Комната заполнена"
   }
 };
