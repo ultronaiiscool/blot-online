@@ -139,7 +139,15 @@ if (!clientToken){
   localStorage.setItem("blot_token", clientToken);
 }
 
-function send(obj){ if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj)); }
+function send(obj){
+  if (!ws || ws.readyState !== 1) return;
+  // Back-compat: allow either {t:"..."} or {type:"..."}
+  if (obj && obj.t && !obj.type){
+    obj.type = obj.t;
+    delete obj.t;
+  }
+  ws.send(JSON.stringify(obj));
+}
 
 function connect(){
   const proto = location.protocol === "https:" ? "wss" : "ws";
@@ -419,6 +427,17 @@ function applyI18n(){
   const botsLbl = document.querySelector('label[for="botLevel"]'); if (botsLbl) botsLbl.textContent = t("bots");
   const dlgTitle = document.querySelector("#scoreDlg h3"); if (dlgTitle) dlgTitle.textContent = t("handScored");
   const dlgOk = document.querySelector("#scoreDlg .primary"); if (dlgOk) dlgOk.textContent = t("ok");
+}
+
+
+function renderLobbyTexts(){
+  const q = el("quickMatchBtn"); if (q) q.textContent = t("quickMatch");
+  const cr = el("createRoomBtn"); if (cr) cr.textContent = t("createRoom");
+  const jr = el("joinRoomBtn"); if (jr) jr.textContent = t("joinRoom");
+  const nm = el("nameLabel"); if (nm) nm.textContent = t("yourName");
+  const rc = el("roomLabel"); if (rc) rc.textContent = t("roomCode");
+  const tg = el("targetLabel"); if (tg) tg.textContent = t("targetScore");
+  const botsLbl = document.querySelector('label[for="botLevel"]'); if (botsLbl) botsLbl.textContent = t("bots");
 }
 
 function renderGame(){
@@ -830,3 +849,5 @@ if (!playerToken){
 function sendHello(){
   send({ t:"hello", name: (playerName || "Guest"), token: playerToken });
 }
+
+renderLobbyTexts();
