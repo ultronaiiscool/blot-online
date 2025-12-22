@@ -1,0 +1,530 @@
+const el = (id) => document.getElementById(id);
+const roomsEl = el("rooms");
+const roomPanel = el("roomPanel");
+const roomIdEl = el("roomId");
+const roomMetaEl = el("roomMeta");
+const youEl = el("you");
+const nameEl = el("name");
+const saveNameBtn = el("saveName");
+
+const qmTarget = el("qmTarget");
+const qmTimer = el("qmTimer");
+const quickMatchBtn = el("quickMatch");
+const refreshBtn = el("refresh");
+const createBtn = el("create");
+const openJoinBtn = el("openJoin");
+
+const readyBtn = el("ready");
+const leaveBtn = el("leave");
+
+const chatLog = el("chatLog");
+const chatText = el("chatText");
+const sendChat = el("sendChat");
+
+const createDlg = el("createDlg");
+const crTarget = el("crTarget");
+const crTimer = el("crTimer");
+const crPrivate = el("crPrivate");
+const crPassword = el("crPassword");
+
+const joinDlg = el("joinDlg");
+const jrCode = el("jrCode");
+const jrPassword = el("jrPassword");
+
+const gameInfo = el("gameInfo");
+const biddingPanel = el("bidding");
+const trickPanel = el("trick");
+const trickPlays = el("trickPlays");
+const handCards = el("handCards");
+const scoringLog = el("scoringLog");
+
+const bidSuit = el("bidSuit");
+const bidPoints = el("bidPoints");
+const bidBtn = el("bidBtn");
+const passBtn = el("passBtn");
+const contraBtn = el("contraBtn");
+const recontraBtn = el("recontraBtn");
+const legalBtn = el("legalBtn");
+const nextHandBtn = el("nextHandBtn");
+
+const sortBtn = el("sortBtn");
+const pTop = el("pTop");
+const pLeft = el("pLeft");
+const pRight = el("pRight");
+const pBottom = el("pBottom");
+const cTop = el("cTop");
+const cLeft = el("cLeft");
+const cRight = el("cRight");
+const cBottom = el("cBottom");
+const centerMeta = el("centerMeta");
+const centerPile = el("centerPile");
+const scoreDlg = el("scoreDlg");
+const scoreBody = el("scoreBody");
+
+let ws;
+let you = null;
+let currentRoom = null;
+let readySet = new Set();
+let gameState = null;
+let lastBidLogLen = 0;
+let lastLegal = [];
+let sortEnabled = true;
+
+
+let audioCtx = null;
+function beep(freq=440, dur=0.06, type="sine", vol=0.04){
+  try{
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type;
+    o.frequency.value = freq;
+    g.gain.value = vol;
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start();
+    o.stop(audioCtx.currentTime + dur);
+  }catch{}
+}
+function sfx(event){
+  if (event === "deal") beep(520,0.03,"triangle",0.03);
+  if (event === "play") beep(420,0.04,"sine",0.04);
+  if (event === "win") { beep(660,0.06,"triangle",0.04); setTimeout(()=>beep(880,0.06,"triangle",0.03),60); }
+  if (event === "bid") beep(560,0.05,"square",0.02);
+}
+
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch(()=>{});
+}
+
+function fmtTime(ts){
+  const d = new Date(ts);
+  return d.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, (c)=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+function addMsg({from, text, ts}){
+  const p = document.createElement("p");
+  p.className = "msg";
+  p.innerHTML = `<b>${escapeHtml(from.name)}</b><span>${fmtTime(ts)}</span><br>${escapeHtml(text)}`;
+  chatLog.appendChild(p);
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+function addSystem(text){
+  addMsg({ from:{name:"System"}, text, ts: Date.now() });
+}
+
+function send(obj){ ws.send(JSON.stringify(obj)); }
+
+function connect(){
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  ws = new WebSocket(`${proto}://${location.host}`);
+
+  ws.addEventListener("message", (ev)=>{
+    const msg = JSON.parse(ev.data);
+    switch(msg.t){
+      case "hello":
+        you = msg.you;
+        youEl.textContent = `You: ${you.name} (${you.id.slice(0,4)})`;
+        renderRooms(msg.rooms);
+        break;
+      case "rooms:list":
+        renderRooms(msg.rooms);
+        break;
+      case "profile:ok":
+        you = msg.you;
+        youEl.textContent = `You: ${you.name} (${you.id.slice(0,4)})`;
+        break;
+      case "room:created":
+        send({ t:"room:join", roomId: msg.room.id, password: msg.room.settings?.password || "" });
+        break;
+      case "room:join:ok":
+        showRoom(msg.room);
+        break;
+      case "room:join:error":
+        alert(msg.error);
+        break;
+      case "room:left":
+        hideRoom();
+        break;
+      case "room:update":
+        if (currentRoom && msg.room.id === currentRoom.id) showRoom(msg.room, true);
+        send({ t:"rooms:list" });
+        break;
+      case "room:ready:update":
+        readySet = new Set(msg.ready || []);
+        updateReadyButton();
+        paintSeats();
+        break;
+      case "chat:new":
+        addMsg(msg.entry);
+        break;
+      case "game:state":
+        const prevPhase = gameState?.phase;
+        const prevLen = lastBidLogLen;
+        gameState = msg.state;
+        lastBidLogLen = gameState?.bidLog?.length || 0;
+        if (prevPhase && prevPhase !== gameState.phase){
+          if (gameState.phase === "bidding") sfx("deal");
+        }
+        if ((gameState?.bidLog?.length || 0) > prevLen) sfx("bid");
+        renderGame();
+        break;
+      case "game:error":
+        addSystem(msg.error || "Game error");
+        break;
+      case "hand:scored":
+        // show modal breakdown
+        if (scoreBody){
+          const b = msg.breakdown;
+          const suit = b.trumpSuit ? suitGlyph(b.trumpSuit) : "—";
+          const lines = [];
+          lines.push(`Trump: ${suit}`);
+          lines.push(`Contract: ${JSON.stringify(b.contract)} (Team ${b.declarerTeam===0?"A":"B"})`);
+          lines.push(`Contra: x${b.contra}`);
+          lines.push(`Tricks won: ${b.tricksCount[0]}-${b.tricksCount[1]}`);
+          lines.push(`Melds: ${b.melds.team0.points}-${b.melds.team1.points}`);
+          lines.push(`Raw points: ${b.teamPointsRaw[0]}-${b.teamPointsRaw[1]}`);
+          lines.push(`Awarded: ${b.awarded[0]}-${b.awarded[1]}`);
+          lines.push(`Totals: ${msg.totals[0]}-${msg.totals[1]}`);
+          scoreBody.textContent = lines.join("\n");
+          scoreDlg?.showModal?.();
+          sfx("win");
+        }
+
+        scoringLog.textContent += `\n[Hand scored] trump=${msg.breakdown.trumpSuit} contra=x${msg.breakdown.contra}\n` +
+          `contract=${JSON.stringify(msg.breakdown.contract)} declarerTeam=${msg.breakdown.declarerTeam}\n` +
+          `tricks=${msg.breakdown.tricksCount.join("-")} melds=${msg.breakdown.melds.team0.points}-${msg.breakdown.melds.team1.points}\n` +
+          `raw=${msg.breakdown.teamPointsRaw.join("-")} awarded=${msg.breakdown.awarded.join("-")} totals=${msg.totals.join("-")}\n`;
+        break;
+      default:
+        // ignore
+        break;
+    }
+  });
+
+  ws.addEventListener("close", ()=> addSystem("Disconnected. Refresh to reconnect."));
+}
+
+function renderRooms(rooms){
+  roomsEl.innerHTML = "";
+  if (!rooms || rooms.length === 0){
+    roomsEl.innerHTML = `<div class="hint">No public rooms yet. Create one or Quick Match.</div>`;
+    return;
+  }
+  for (const r of rooms){
+    const seated = r.seats.filter(Boolean).length;
+    const div = document.createElement("div");
+    div.className = "room";
+    div.innerHTML = `
+      <div>
+        <div><code>${r.id}</code> <small>(${seated}/4 players)</small></div>
+        <small>Target ${r.settings.targetScore} • ${r.settings.turnSeconds}s • ${r.phase}</small>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="primary">Join</button>
+      </div>
+    `;
+    div.querySelector("button").addEventListener("click", ()=>{
+      jrCode.value = r.id;
+      jrPassword.value = "";
+      joinDlg.showModal();
+    });
+    roomsEl.appendChild(div);
+  }
+}
+
+function showRoom(room, keepChat=false){
+  currentRoom = room;
+  roomPanel.hidden = false;
+  roomIdEl.textContent = room.id;
+
+  const seated = room.seats.filter(Boolean).length;
+  roomMetaEl.textContent = `Target ${room.settings.targetScore} • ${room.settings.turnSeconds}s turns • ${seated}/4 seated • spectators ${room.spectators} • phase ${room.phase}`;
+
+  if (!keepChat) chatLog.innerHTML = "";
+  paintSeats();
+  updateReadyButton();
+}
+
+function hideRoom(){
+  currentRoom = null;
+  readySet = new Set();
+  roomPanel.hidden = true;
+  roomIdEl.textContent = "";
+  roomMetaEl.textContent = "";
+  chatLog.innerHTML = "";
+  gameState = null;
+  lastLegal = [];
+  renderGame();
+}
+
+function paintSeats(){
+  if (!currentRoom) return;
+  document.querySelectorAll(".seat").forEach((s)=>{
+    const idx = Number(s.dataset.seat);
+    const p = currentRoom.seats[idx];
+    if (!p){
+      s.innerHTML = `<div class="t">Seat ${idx+1}</div><div class="n">(empty)</div>`;
+      return;
+    }
+    const isReady = readySet.has(p.id);
+    const team = (idx===0 || idx===2) ? "Team A" : "Team B";
+    s.innerHTML = `<div class="t">${team} • Seat ${idx+1} ${isReady ? "• ✅ ready" : ""}</div><div class="n">${escapeHtml(p.name)} <span style="color:var(--muted);font-weight:400">(${p.id.slice(0,4)})</span></div>`;
+  });
+}
+
+function updateReadyButton(){
+  if (!you || !currentRoom) return;
+  // enable if seated
+  const seated = currentRoom.seats.some(p => p && p.id === you.id);
+  if (!seated){
+    readyBtn.disabled = true;
+    readyBtn.textContent = "Spectating";
+    return;
+  }
+  readyBtn.disabled = false;
+  const isReady = readySet.has(you.id);
+  readyBtn.textContent = isReady ? "Unready" : "Ready";
+}
+
+function suitGlyph(s){
+  return ({S:"♠",H:"♥",D:"♦",C:"♣"}[s] || s);
+}
+function prettyCard(id){
+  // "10H" -> "10♥"
+  const suit = id.slice(-1);
+  const rank = id.slice(0,-1);
+  return `${rank}${suitGlyph(suit)}`;
+}
+
+
+function cardSuit(id){ return id.slice(-1); }
+function cardRank(id){ return id.slice(0,-1); }
+const TRUMP_ORDER = ["J","9","A","10","K","Q","8","7"];
+const PLAIN_ORDER = ["A","10","K","Q","J","9","8","7"];
+const SUIT_ORDER = ["S","H","D","C"];
+
+function sortHandCards(cards, trumpSuit){
+  const t = trumpSuit || "S";
+  return [...cards].sort((a,b)=>{
+    const sa = cardSuit(a), sb = cardSuit(b);
+    const ra = cardRank(a), rb = cardRank(b);
+    // suit grouping: trump first, then suit order
+    const ga = (sa === t) ? -1 : SUIT_ORDER.indexOf(sa);
+    const gb = (sb === t) ? -1 : SUIT_ORDER.indexOf(sb);
+    if (ga !== gb) return ga - gb;
+    const oa = (sa === t) ? TRUMP_ORDER : PLAIN_ORDER;
+    const ob = (sb === t) ? TRUMP_ORDER : PLAIN_ORDER;
+    return oa.indexOf(ra) - ob.indexOf(rb);
+  });
+}
+
+function seatName(state, seat){
+  return state.seats?.[seat]?.name || `Seat ${seat+1}`;
+}
+
+
+function renderGame(){
+  if (!gameState || !you){
+    biddingPanel.hidden = true;
+    trickPanel.hidden = true;
+    gameInfo.textContent = "No game yet. Ready up with 4 players.";
+    return;
+  }
+
+  const me = you.id;
+  const mySeat = gameState.seats.findIndex(p => p && p.id === me);
+  const isMyTurn = (mySeat === gameState.turnSeat);
+
+  const phase = gameState.phase;
+  const trump = gameState.trumpSuit ? suitGlyph(gameState.trumpSuit) : "—";
+  const totals = gameState.totals ? `${gameState.totals[0]}-${gameState.totals[1]}` : "0-0";
+  const contract = gameState.contract ? JSON.stringify(gameState.contract) : "—";
+  const contra = `x${gameState.contra || 1}`;
+
+  let bidLine = "";
+  if (gameState.bidLog?.length){
+    const last = gameState.bidLog.slice(-6).map(x=>{
+      const nm = seatName(gameState, x.seat);
+      if (x.action === "pass") return `${nm}: pass`;
+      if (x.action === "contra") return `${nm}: contra`;
+      if (x.action === "recontra") return `${nm}: recontra`;
+      if (x.action === "bid"){
+        const b = x.bid;
+        const s = suitGlyph(b.suit);
+        return `${nm}: ${b.type==="capot"?"capot":b.bid}${s}`;
+      }
+      return `${nm}: ${x.action}`;
+    }).join(" • ");
+    bidLine = ` • bids: ${last}`;
+  }
+
+  gameInfo.textContent = `phase=${phase} • trump=${trump} • contract=${contract} • contra=${contra} • totals=${totals} • turnSeat=${gameState.turnSeat+1} ${isMyTurn ? "(your turn)" : ""}`;
+
+  // panels
+  biddingPanel.hidden = !(phase === "bidding");
+  trickPanel.hidden = !(phase === "trick" || phase === "scoring" || phase === "finished" || phase === "lobby" || phase === "declarations");
+
+  // Bidding controls
+  if (phase === "bidding"){
+    bidBtn.disabled = !isMyTurn;
+    passBtn.disabled = !isMyTurn;
+    contraBtn.disabled = !gameState.bidding?.highestBid || (mySeat === -1) || !isMyTurn; // allow only on turn for simplicity
+    recontraBtn.disabled = true;
+  } else {
+    bidBtn.disabled = true;
+    passBtn.disabled = true;
+    contraBtn.disabled = true;
+    recontraBtn.disabled = true;
+  }
+
+  // Trick display
+  if (!trickPanel.hidden){
+    // trick plays
+    trickPlays.innerHTML = "";
+    if (gameState.trick && gameState.trick.plays){
+      for (const p of gameState.trick.plays){
+        const name = gameState.seats[p.seat]?.name || `Seat ${p.seat+1}`;
+        const div = document.createElement("div");
+        div.className = "pill";
+        div.innerHTML = `<img class="miniCard" src="/assets/cards/${p.card}.svg" alt="${prettyCard(p.card)}" /> <span>${escapeHtml(name)}: ${prettyCard(p.card)}</span>`;
+        trickPlays.appendChild(div);
+      }
+    } else {
+      trickPlays.innerHTML = `<div class="hint">No trick yet.</div>`;
+    }
+
+    // hand cards (textured)
+    handCards.innerHTML = "";
+    const myHand = gameState.hands?.[me]?.cards || [];
+    for (const c of myHand){
+      const wrap = document.createElement("div");
+      wrap.className = "cardWrap";
+      if (lastLegal.includes(c)) wrap.classList.add("legal");
+
+      const btn = document.createElement("button");
+      btn.className = "cardArt";
+      btn.setAttribute("aria-label", `Play ${prettyCard(c)}`);
+      btn.style.backgroundImage = `url(/assets/cards/${c}.svg)`;
+      btn.disabled = !(phase === "trick" && isMyTurn);
+      btn.addEventListener("click", ()=>{
+        send({ t:"game:play", card: c });
+      });
+
+      wrap.appendChild(btn);
+      handCards.appendChild(wrap);
+    }
+legalBtn.disabled = !(phase === "trick" && isMyTurn);
+    nextHandBtn.disabled = !(phase === "lobby" || phase === "finished");
+  }
+}
+
+// UI events
+saveNameBtn.addEventListener("click", ()=>{
+  const n = nameEl.value.trim();
+  if (n) send({ t:"profile:set", name: n });
+});
+
+quickMatchBtn.addEventListener("click", ()=>{
+  send({ t:"match:quick", targetScore:Number(qmTarget.value), turnSeconds:Number(qmTimer.value) });
+});
+
+refreshBtn.addEventListener("click", ()=> send({ t:"rooms:list" }));
+
+createBtn.addEventListener("click", ()=>{
+  crPassword.disabled = !crPrivate.checked;
+  createDlg.showModal();
+});
+crPrivate.addEventListener("change", ()=> crPassword.disabled = !crPrivate.checked);
+
+el("crSubmit").addEventListener("click", ()=>{
+  send({
+    t:"room:create",
+    targetScore:Number(crTarget.value),
+    turnSeconds:Number(crTimer.value),
+    isPrivate:crPrivate.checked,
+    password: crPrivate.checked ? (crPassword.value || "") : ""
+  });
+});
+
+openJoinBtn.addEventListener("click", ()=>{
+  jrCode.value = "";
+  jrPassword.value = "";
+  joinDlg.showModal();
+});
+
+el("jrSubmit").addEventListener("click", ()=>{
+  const code = jrCode.value.trim().toUpperCase();
+  send({ t:"room:join", roomId: code, password: jrPassword.value || "" });
+});
+
+readyBtn.addEventListener("click", ()=>{
+  if (!you || !currentRoom) return;
+  const isReady = readySet.has(you.id);
+  send({ t:"room:ready", ready: !isReady });
+});
+
+leaveBtn.addEventListener("click", ()=> send({ t:"room:leave" }) );
+
+sendChat.addEventListener("click", ()=>{
+  const text = chatText.value.trim();
+  if (!text) return;
+  send({ t:"chat:send", text });
+  chatText.value = "";
+});
+chatText.addEventListener("keydown", (e)=>{
+  if (e.key === "Enter") sendChat.click();
+});
+
+bidBtn.addEventListener("click", ()=>{
+  send({ t:"game:bid", type:"points", suit: bidSuit.value, bid: Number(bidPoints.value) });
+});
+passBtn.addEventListener("click", ()=> send({ t:"game:pass" }) );
+contraBtn.addEventListener("click", ()=> send({ t:"game:contra" }) );
+recontraBtn.addEventListener("click", ()=> send({ t:"game:recontra" }) );
+
+legalBtn.addEventListener("click", ()=>{
+  lastLegal = [];
+  send({ t:"game:legal" });
+});
+ws = null;
+
+// intercept legal response
+function connectAndHook(){
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  ws = new WebSocket(`${proto}://${location.host}`);
+  ws.addEventListener("message", (ev)=>{
+    const msg = JSON.parse(ev.data);
+    if (msg.t === "game:legal"){
+      lastLegal = msg.legal || [];
+      renderGame();
+    }
+  });
+  // but we need the normal listener too:
+  ws.addEventListener("message", (ev)=>{
+    const msg = JSON.parse(ev.data);
+    // dispatch to main switch by re-calling handler
+  });
+}
+/* Instead of double listeners chaos, we just handle in one connect(). */
+connect();
+
+// Patch: add handling for game:legal in the active ws
+ws.addEventListener("message", (ev)=>{
+  const msg = JSON.parse(ev.data);
+  if (msg.t === "game:legal"){
+    lastLegal = msg.legal || [];
+    renderGame();
+  }
+});
+
+nextHandBtn.addEventListener("click", ()=> send({ t:"game:next" }) );
+
+
+sortBtn?.addEventListener("click", ()=>{
+  sortEnabled = !sortEnabled;
+  addSystem(`Sort hand: ${sortEnabled ? "ON" : "OFF"}`);
+  renderGame();
+});
