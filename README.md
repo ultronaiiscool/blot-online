@@ -32,3 +32,10 @@ This build ships with a custom SVG deck (32 cards + back) in `server/public/asse
 
 ## Polish UI
 This build adds a 4-player table layout, hand sorting, bid history, simple animations, and sound effects.
+
+
+## Bots
+Quick Match can fill empty seats with bots (Easy/Normal). Voice chat works for seated players.
+
+## Languages
+UI supports English, Armenian, Russian via a language selector. Language is per-device (saved in localStorage).

@@ -401,6 +401,7 @@ function seatName(state, seat){
 
 
 function renderGame(){
+  applyI18n();
   if (!gameState || !you){
     biddingPanel.hidden = true;
     trickPanel.hidden = true;
@@ -493,6 +494,7 @@ function renderGame(){
 legalBtn.disabled = !(phase === "trick" && isMyTurn);
     nextHandBtn.disabled = !(phase === "lobby" || phase === "finished");
   }
+  renderVoice();
 }
 
 // UI events
@@ -768,3 +770,11 @@ sortBtn?.addEventListener("click", ()=>{
   addSystem(`Sort hand: ${sortEnabled ? "ON" : "OFF"}`);
   renderGame();
 });
+
+
+function applyPeerMute(seat){
+  const el = peerAudioEls[seat];
+  if (el) el.muted = !!mutedPeers[seat];
+}
+
+applyI18n();

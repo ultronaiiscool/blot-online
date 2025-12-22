@@ -14,7 +14,16 @@
 </head>
 <body>
   <header class="hdr">
-    <div class="hdr__title">
+    
+  <div class="topbar__right">
+    <label class="tinyLabel" for="langSelect">Lang</label>
+    <select id="langSelect" class="select">
+      <option value="en">English</option>
+      <option value="hy">Հայերեն</option>
+      <option value="ru">Русский</option>
+    </select>
+  </div>
+<div class="hdr__title">
       <h1>Armenian Blot Online</h1>
       <div class="sub">Server-authoritative rules: bidding, contra, trick play, scoring</div>
     </div>
@@ -28,7 +37,7 @@
   <main class="grid">
     <section class="card">
       <h2>Quick Match</h2>
-      <div class="row"><label>Target</label>
+      <div class="row"><label id="targetLabel">Target</label>
         <select id="qmTarget"><option value="101">101</option><option value="201">201</option><option value="301" selected>301</option></select>
       </div>
       <div class="row"><label>Turn timer</label>
@@ -163,7 +172,7 @@
   <dialog id="createDlg">
     <form method="dialog" class="dlg">
       <h3>Create room</h3>
-      <div class="row"><label>Target</label>
+      <div class="row"><label id="targetLabel">Target</label>
         <select id="crTarget"><option value="101">101</option><option value="201">201</option><option value="301" selected>301</option></select>
       </div>
       <div class="row"><label>Turn timer</label>
@@ -181,7 +190,7 @@
   <dialog id="joinDlg">
     <form method="dialog" class="dlg">
       <h3>Join room</h3>
-      <div class="row"><label>Room code</label><input id="jrCode" maxlength="12" placeholder="ABC123" /></div>
+      <div class="row"><label id="roomLabel">Room code</label><input id="jrCode" maxlength="12" placeholder="ABC123" /></div>
       <div class="row"><label>Password</label><input id="jrPassword" maxlength="32" placeholder="if needed" /></div>
       <menu class="dlg__menu">
         <button value="cancel">Cancel</button>

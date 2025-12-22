@@ -1,3 +1,4 @@
+function getLegalPlays(state, seat){ return legalPlays(state, seat); }
 import express from "express";
 import http from "http";
 import path from "path";
@@ -43,6 +44,19 @@ const RANKS = ["7","8","9","J","Q","K","10","A"]; // storage order; ranking diff
 const TEAM_OF_SEAT = (seat) => (seat === 0 || seat === 2) ? 0 : 1;
 
 function now(){ return Date.now(); }
+
+
+// Bots
+const BOT_NAMES = [
+  "Bot Aram","Bot Ani","Bot Vardan","Bot Narek",
+  "Bot Lilit","Bot Saro","Bot Tatev","Bot Levon"
+];
+function makeBot(skill="easy"){
+  const name = BOT_NAMES[Math.floor(Math.random()*BOT_NAMES.length)];
+  return { id: `bot_${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`, name, isBot: true, skill };
+}
+function isBotPlayer(p){ return !!p?.isBot; }
+
 function randInt(max){
   // crypto random int [0,max)
   const buf = crypto.randomBytes(4);
@@ -189,6 +203,48 @@ function beloteHolders(hands, trumpSuit){
 
 // -------------------- game engine --------------------
 const clients = new Map(); // ws -> {id,name,roomId,seat}
+
+function fillRoomWithBots(room){
+  const level = room.botLevel || "off";
+  if (level === "off") return;
+  while (room.seats.filter(Boolean).length < 4){
+    room.seats.push(makeBot(level));
+  }
+}
+function botDelay(skill){
+  return skill === "easy" ? 700 : 900;
+}
+function botChooseBid(state, seat){
+  // very simple heuristic: count high trump potential per suit, bid 80..120
+  const pid = state.seats[seat]?.id;
+  const hand = pid ? (state.hands?.[pid]?.cards || []) : [];
+  const suits = ["S","H","D","C"];
+  const scoreSuit = (s)=>{
+    let sc=0;
+    for (const c of hand){
+      const r = c.slice(0,-1), su=c.slice(-1);
+      if (su!==s) continue;
+      if (r==="J") sc+=5;
+      else if (r==="9") sc+=4;
+      else if (r==="A") sc+=3;
+      else if (r==="10") sc+=2;
+      else if (r==="K"||r==="Q") sc+=1;
+    }
+    return sc;
+  };
+  let best = "S", bestScore = -1;
+  for (const s of suits){
+    const sc = scoreSuit(s);
+    if (sc>bestScore){ bestScore=sc; best=s; }
+  }
+  // easy bots pass a lot; normal bids more
+  const skill = "normal";
+  const thresh = skill === "easy" ? 8 : 6;
+  if (bestScore < thresh) return { type:"pass" };
+  const bid = Math.min(120, 80 + Math.floor((bestScore-6))*10);
+  return { type:"bid", bid, suit: best };
+}
+
 const rooms = new Map();   // roomId -> room
 
 // Reconnect support (client token -> stable player id)
@@ -316,6 +372,90 @@ function roomSummary(room){
 function send(ws, obj){
   if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(obj));
 }
+
+function maybeBotAct(room){
+  const s = room.game;
+  if (!s) return;
+  const seat = s.turnSeat;
+  const pl = room.seats?.[seat];
+  if (!isBotPlayer(pl)) return;
+
+  const skill = pl.skill || "easy";
+  setTimeout(()=>{
+    try{
+      if (s.phase === "bidding"){
+        // bot decides bid or pass
+        const dec = botDecideBid(room, seat);
+        if (dec.type === "pass") handlePass(room, seat);
+        else if (dec.type === "bid") handleBid(room, seat, { bid: dec.bid, suit: dec.suit });
+      } else if (s.phase === "trick"){
+        const card = botDecidePlay(room, seat);
+        if (card) handlePlay(room, seat, card);
+      }
+    }catch(e){}
+  }, botDelay(skill));
+}
+function botDecideBid(room, seat){
+  const s = room.game;
+  const pid = s.seats?.[seat]?.id;
+  const hand = pid ? (s.hands?.[pid]?.cards || []) : [];
+  const suits = ["S","H","D","C"];
+  const scoreSuit = (suit)=>{
+    let sc=0;
+    for (const c of hand){
+      const r = c.slice(0,-1), su=c.slice(-1);
+      if (su!==suit) continue;
+      if (r==="J") sc+=5;
+      else if (r==="9") sc+=4;
+      else if (r==="A") sc+=3;
+      else if (r==="10") sc+=2;
+      else if (r==="K"||r==="Q") sc+=1;
+    }
+    return sc;
+  };
+  let best = "S", bestScore=-1;
+  for (const suit of suits){
+    const sc = scoreSuit(suit);
+    if (sc>bestScore){ bestScore=sc; best=suit; }
+  }
+  const skill = room.botLevel || "easy";
+  const thresh = skill === "easy" ? 8 : 6;
+  if (bestScore < thresh) return { type:"pass" };
+
+  // propose bid: 80..140, but must beat current highest
+  const proposed = Math.min(140, 80 + Math.max(0, bestScore-6)*10);
+  const current = s.bidding?.highestBid?.bid || 0;
+  const bid = Math.max(current + 10, proposed);
+  if (bid > 160) return { type:"pass" };
+  return { type:"bid", bid, suit: best };
+}
+function botDecidePlay(room, seat){
+  const s = room.game;
+  // use existing legal move calculation if present
+  const legal = getLegalPlays(s, seat);
+  if (!legal || !legal.length) return null;
+  const skill = room.botLevel || "easy";
+  if (skill === "easy"){
+    return legal[Math.floor(Math.random()*legal.length)];
+  }
+  // normal: prefer winning with low cost, otherwise dump low
+  const leadSuit = s.trick?.leadSuit;
+  const trump = s.trumpSuit;
+  const value = (card)=>{
+    const r = card.slice(0,-1), su = card.slice(-1);
+    const trumpOrder = ["J","9","A","10","K","Q","8","7"];
+    const plainOrder = ["A","10","K","Q","J","9","8","7"];
+    const pointsTrump = {J:20,"9":14,A:11,"10":10,K:4,Q:3,"8":0,"7":0};
+    const pointsPlain = {A:11,"10":10,K:4,Q:3,J:2,"9":0,"8":0,"7":0};
+    const isTrump = (su===trump);
+    const pts = isTrump ? (pointsTrump[r]||0) : (pointsPlain[r]||0);
+    // lower is better (try to spend fewer points) unless trump/lead suited
+    const ord = (isTrump ? trumpOrder : plainOrder).indexOf(r);
+    return pts*10 + ord;
+  };
+  return [...legal].sort((a,b)=> value(a)-value(b))[0];
+}
+
 function broadcastRoom(roomId, obj){
   const payload = JSON.stringify(obj);
   for (const [ws, info] of clients.entries()){
