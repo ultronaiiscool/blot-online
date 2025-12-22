@@ -1,41 +1,26 @@
-# Armenian Blot Online (Rules Engine Build)
+# Blot Online (Clean Step D)
 
-This build includes:
-- Multiplayer lobby/rooms/WebSockets
-- Full server-side rules engine (bidding, contra/recontra, trick rules, scoring)
-- Mobile support (PWA) for iPhone/Android
+This is a **clean**, working multiplayer skeleton for Armenian Blot.
+It includes:
+- WebSocket server (Express + ws)
+- Create Room / Join Room / Quick Match (queues 4 players)
+- Deal 8 cards each and a simple turn-based trick loop
+- Working language dropdown (EN / HY / RU) for UI labels
+- Name saved in localStorage
 
 ## Run locally
-```bash
+
+```powershell
 cd server
 npm install
-npm run dev
+npm start
 ```
-Open http://localhost:3000
 
-## Notes on rule fidelity
-Armenian Blot has house-rule variations. This implementation follows a practical, widely-used online ruleset:
-- Bids 80..160 in tens + suit
-- Capot contract supported
-- Follow suit; if void must trump when opponents winning; overtrump when possible
-- Trump order J,9,A,10,K,Q,8,7
-- Last trick +10
-- Melds auto-calculated by server; only team with stronger best meld scores meld points
-- Belote (K+Q of trump) awards +20 when both have been played
+Open:
+- http://localhost:3000
 
-Card textures/art are not included yet. Next step is visual card rendering + assets.
+## Deploy on Render
 
-
-## Card textures
-This build ships with a custom SVG deck (32 cards + back) in `server/public/assets/cards/`.
-
-
-## Polish UI
-This build adds a 4-player table layout, hand sorting, bid history, simple animations, and sound effects.
-
-
-## Bots
-Quick Match can fill empty seats with bots (Easy/Normal). Voice chat works for seated players.
-
-## Languages
-UI supports English, Armenian, Russian via a language selector. Language is per-device (saved in localStorage).
+- Root directory: `server`
+- Build: `npm install`
+- Start: `npm start`

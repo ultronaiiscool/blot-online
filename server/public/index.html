@@ -3,204 +3,65 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Armenian Blot Online</title>
-  <link rel="stylesheet" href="/style.css" />
-  <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#0f3d2e">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Blot">
-  <link rel="apple-touch-icon" href="/icon-192.png">
+  <title>Armenian Blot</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-<div style="position:fixed;bottom:6px;right:6px;font-size:10px;opacity:.55;z-index:9999">BUILD: 2025-UPGRADED</div>
-<div style="position:fixed;bottom:6px;right:6px;font-size:10px;opacity:.55;z-index:9999">BUILD: 2025-FINAL-STATIC-FIX</div>
-  <header class="hdr">
-    
-  <div class="topbar__right">
-    <label class="tinyLabel" for="langSelect">Lang</label>
-    <select id="langSelect" class="select">
-      <option value="en">English</option>
-      <option value="hy">Հայերեն</option>
-      <option value="ru">Русский</option>
-    </select>
-  </div>
-<div class="hdr__title">
-      <h1>Armenian Blot Online</h1>
-      <div class="sub">Server-authoritative rules: bidding, contra, trick play, scoring</div>
+  <header class="topbar">
+    <div class="brand">
+      <div id="title" class="title">Armenian Blot (Step D)</div>
+      <div class="subtitle">Multiplayer skeleton that actually works.</div>
     </div>
-    <div class="hdr__profile">
-      <input id="name" maxlength="20" placeholder="Your name" />
-      <button id="saveName">Save</button>
-      <span id="you"></span>
+
+    <div class="lang-wrap">
+      <select id="langSelect" class="select">
+        <option value="en">English</option>
+        <option value="hy">Հայերեն</option>
+        <option value="ru">Русский</option>
+      </select>
     </div>
   </header>
 
-  <main class="grid">
-    <section class="card">
-      <h2>Quick Match</h2>
-      <div class="row"><label id="targetLabel">Target</label>
-        <select id="qmTarget"><option value="101">101</option><option value="201">201</option><option value="301" selected>301</option></select>
+  <main class="wrap">
+    <section class="card panel">
+      <div class="row">
+        <label id="lblName" class="lbl" for="nameInput">Name</label>
+        <input id="nameInput" class="input" placeholder="Your name" />
       </div>
-      <div class="row"><label>Turn timer</label>
-        <select id="qmTimer"><option value="15">15s</option><option value="20" selected>20s</option><option value="30">30s</option></select>
+      <div class="row">
+        <label id="lblRoom" class="lbl" for="roomCodeInput">Room code</label>
+        <input id="roomCodeInput" class="input" placeholder="ABCDE" />
       </div>
-      <button id="quickMatch" class="primary">Find game</button>
-      <p class="hint">Joins any open room or creates one. Ready up to start.</p>
+
+      <div class="buttons">
+<button id="googleSignInBtn" class="btn">Sign in with Google</button>
+        <button id="createRoomBtn" class="btn primary">Create Room</button>
+        <button id="joinRoomBtn" class="btn">Join Room</button>
+        <button id="quickMatchBtn" class="btn">Quick Match</button>
+        <button id="leaveBtn" class="btn danger">Leave</button>
+      </div>
+
+      <div id="status" class="status">Not connected yet.</div>
+      <div id="roomInfo" class="roominfo" hidden></div>
     </section>
 
-    <section class="card">
-      <h2>Public Rooms</h2>
-      <div class="toolbar">
-        <button id="refresh">Refresh</button>
-        <button id="create">Create room</button>
+    <section class="card panel">
+      <div class="panelHead">
+        <div id="playersTitle" class="panelTitle">Players</div>
+        <div id="turnStatus" class="turnStatus">—</div>
       </div>
-      <div id="rooms" class="rooms"></div>
-      <div class="toolbar">
-        <button id="openJoin">Join by code</button>
-      </div>
+      <div id="players" class="players"></div>
+      <div class="divider"></div>
+      <div class="panelTitle">Your hand</div>
+      <div id="hand" class="hand"></div>
+      <div class="divider"></div>
+      <div class="panelTitle">Trick</div>
+      <div id="trick" class="trick"></div>
     </section>
+  </main>
 
-    <section class="card" id="roomPanel" hidden>
-      <h2>Room <span id="roomId"></span></h2>
-      <div class="meta" id="roomMeta"></div>
+  <div class="build">BUILD: 2025-STEP-D-CLEAN</div>
 
-      <div class="table">
-        <div class="seat" data-seat="0"></div>
-        <div class="seat" data-seat="1"></div>
-        <div class="seat" data-seat="2"></div>
-        <div class="seat" data-seat="3"></div>
-      </div>
-
-      <div class="toolbar">
-        <button id="ready" class="primary">Ready</button>
-        <button id="leave">Leave</button>
-      </div>
-
-      <hr class="sep"/>
-
-      <h3 class="h3">Game</h3>
-      <div id="gameInfo" class="meta"></div>
-
-      <div id="bidding" class="panel" hidden>
-        <div class="toolbar">
-          <select id="bidSuit">
-            <option value="S">♠ Spades</option>
-            <option value="H">♥ Hearts</option>
-            <option value="D">♦ Diamonds</option>
-            <option value="C">♣ Clubs</option>
-          </select>
-          <select id="bidPoints">
-            <option>80</option><option>90</option><option>100</option><option>110</option><option>120</option><option>130</option><option>140</option><option>150</option><option>160</option>
-          </select>
-          <button id="bidBtn" class="primary">Bid</button>
-          <button id="passBtn">Pass</button>
-          <button id="contraBtn">Contra</button>
-          <button id="recontraBtn">Recontra</button>
-        </div>
-        <div class="hint">Bidding ends after 3 passes following a bid. Contra locks bidding. Recontra by declarers before play.</div>
-      </div>
-
-      <div id="trick" class="panel" hidden>
-        <div class="toolbar">
-          <button id="sortBtn">Sort hand</button>
-          <button id="legalBtn">Show legal plays</button>
-          <button id="micBtn">🎤 Mic</button>
-          <button id="nextHandBtn" class="primary">Next hand</button>
-        </div>
-
-        <div id="tableBoard" class="board">
-          <div class="pos pos--top"><div class="pos__name" id="pTop"></div><div class="pos__cards" id="cTop"></div></div>
-          <div class="pos pos--left"><div class="pos__name" id="pLeft"></div><div class="pos__cards" id="cLeft"></div></div>
-          <div class="center">
-            <div class="center__meta" id="centerMeta"></div>
-            <div class="center__pile" id="centerPile"></div>
-          </div>
-          <div class="pos pos--right"><div class="pos__name" id="pRight"></div><div class="pos__cards" id="cRight"></div></div>
-          <div class="pos pos--bottom"><div class="pos__name" id="pBottom"></div><div class="pos__cards" id="cBottom"></div></div>
-        </div>
-
-        <div class="hand">
-          <div class="meta">Your hand</div>
-          <div id="handCards" class="cards"></div>
-        </div>
-
-        <div id="voicePanel" class="voicePanel"></div>
-
-        <div class="trick">
-          <div class="meta">Trick</div>
-          <div id="trickPlays" class="trick__plays"></div>
-        </div>
-          <div class="meta">Trick</div>
-          <div id="trickPlays" class="trick__plays"></div>
-        </div>
-
-        <div class="hand">
-          <div class="meta">Your hand</div>
-          <div id="handCards" class="cards"></div>
-        </div>
-
-        <div id="voicePanel" class="voicePanel"></div>
-      </div>
-
-      <div class="chat">
-        <div id="chatLog" class="chat__log"></div>
-        <div class="chat__bar">
-          <input id="chatText" placeholder="Type here (be normal)" maxlength="300" />
-          <button id="sendChat">Send</button>
-        </div>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Status</h2>
-      <div class="hint">
-        This build includes a playable rules engine. Card art/textures come next.
-      </div>
-      <div id="scoringLog" class="log"></div>
-    </section>
-  
-  <dialog id="scoreDlg">
-    <form method="dialog" class="dlg">
-      <h3>Hand scored</h3>
-      <div id="scoreBody" class="scoreBody"></div>
-      <menu class="dlg__menu">
-        <button value="default" class="primary">OK</button>
-      </menu>
-    </form>
-  </dialog>
-</main>
-
-  <dialog id="createDlg">
-    <form method="dialog" class="dlg">
-      <h3>Create room</h3>
-      <div class="row"><label id="targetLabel">Target</label>
-        <select id="crTarget"><option value="101">101</option><option value="201">201</option><option value="301" selected>301</option></select>
-      </div>
-      <div class="row"><label>Turn timer</label>
-        <select id="crTimer"><option value="15">15s</option><option value="20" selected>20s</option><option value="30">30s</option></select>
-      </div>
-      <div class="row"><label>Private</label><input id="crPrivate" type="checkbox" /></div>
-      <div class="row"><label>Password</label><input id="crPassword" placeholder="optional" maxlength="32" /></div>
-      <menu class="dlg__menu">
-        <button value="cancel">Cancel</button>
-        <button id="crSubmit" value="default" class="primary">Create</button>
-      </menu>
-    </form>
-  </dialog>
-
-  <dialog id="joinDlg">
-    <form method="dialog" class="dlg">
-      <h3>Join room</h3>
-      <div class="row"><label id="roomLabel">Room code</label><input id="jrCode" maxlength="12" placeholder="ABC123" /></div>
-      <div class="row"><label>Password</label><input id="jrPassword" maxlength="32" placeholder="if needed" /></div>
-      <menu class="dlg__menu">
-        <button value="cancel">Cancel</button>
-        <button id="jrSubmit" value="default" class="primary">Join</button>
-      </menu>
-    </form>
-  </dialog>
-
-  <script src="/client.js"></script>
+  <script type="module" src="client.js"></script>
 </body>
 </html>
