@@ -13,10 +13,10 @@ export function renderAdmin(root){
     </div>
   `;
 
-  const send = type => state.socket.send(JSON.stringify({type, userId: root.querySelector("#banId").value}));
+  const send = type => sendWS({type, userId: root.querySelector("#banId").value});
 
   root.querySelector("#refresh").onclick = ()=>{
-    state.socket.send(JSON.stringify({type:"admin:log"}));
+    sendWS({type:"admin:log"});
   };
   root.querySelector("#ban").onclick = ()=>send("admin:ban");
   root.querySelector("#unban").onclick = ()=>send("admin:unban");

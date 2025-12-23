@@ -1,5 +1,6 @@
 import { state } from "../core/state.js";
 import { t } from "../core/i18n.js";
+import { sendWS } from "../core/ws.js";
 
 const MODES = [
   {id:"SUIT", key:"suitTrump"},
@@ -84,13 +85,13 @@ export function mountBidding(root,{render}){
     </div>
   `;
 
-  root.querySelector('#coinche').onclick = ()=>{ state.socket.send(JSON.stringify({type:'bid:act', action:{type:'coinche'}})); };
-  root.querySelector('#recoinche').onclick = ()=>{ state.socket.send(JSON.stringify({type:'bid:act', action:{type:'recoinche'}})); };
+  root.querySelector('#coinche').onclick = ()=>{ sendWS({type:'bid:act', action:{type:'coinche'}}); };
+  root.querySelector('#recoinche').onclick = ()=>{ sendWS({type:'bid:act', action:{type:'recoinche'}}); };
 
   root.querySelector("#back").onclick = ()=>{ state.phase="LOBBY"; render(); };
 
   root.querySelector("#pass").onclick = ()=>{
-    state.socket.send(JSON.stringify({type:"bid:act", action:{type:"pass"}}));
+    sendWS({type:"bid:act", action:{type:"pass"}});
   };
 
   root.querySelectorAll(".modeBtn").forEach(btn=>{
@@ -109,7 +110,7 @@ export function mountBidding(root,{render}){
     btn.onclick = ()=>{
       const suit = btn.dataset.suit;
       const contract = Number(root.querySelector('#contract').value || ((room?.target===301)?90:80));
-      state.socket.send(JSON.stringify({type:"bid:act", action:{type:"bid", mode:selectedMode, suit, contract}}));
+      sendWS({type:"bid:act", action:{type:"bid", mode:selectedMode, suit, contract}});
     };
   });
 }

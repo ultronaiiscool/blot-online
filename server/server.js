@@ -8,6 +8,8 @@ const { WebSocketServer } = require("ws");
 const initGoogleAuth = require("./auth/google");
 
 const PORT = process.env.PORT || 3000;
+const TURN_DELAY_MS = 8000; // minimum delay before a player may play a card
+
 
 const app = express();
 app.use(express.static(path.join(__dirname,"..","public")));
@@ -225,6 +227,9 @@ function broadcastGame(room){
         trump: g.trump,
         contract: g.contract,
         contractor: g.contractor,
+        mode: g.mode,
+        coincheLevel: g.coincheLevel,
+        turnUnlockUntil: g.turnUnlockUntil || 0,
         trick: g.trick,
         leadSuit: g.leadSuit,
         trickCount: g.trickCount,
@@ -363,6 +368,11 @@ function playCard(room, pid, cardId){
   if(room.phase !== "PLAY") return;
   const g = room.game;
   if(g.turn !== pid) return;
+  if(Date.now() < (g.turnUnlockUntil||0)){
+    const p = room.players.get(pid);
+    if(p?.ws?.readyState===1) p.ws.send(JSON.stringify({type:"turn:locked", until:g.turnUnlockUntil}));
+    return;
+  }
 
   const hand = g.hands[pid];
   const idx = hand.findIndex(c=>c.id===cardId);
@@ -385,6 +395,7 @@ function playCard(room, pid, cardId){
     return;
   }
   g.turn = nextSeat(room, pid);
+  g.turnUnlockUntil = Date.now() + TURN_DELAY_MS;
   broadcastGame(room);
   maybeBotPlay(room);
 }
@@ -408,6 +419,11 @@ function maybeBotPlay(room){
     const p = room.players.get(pid);
     if(!p || !p.bot) return;
 
+    const wait = Math.max(0, (g.turnUnlockUntil||0) - Date.now());
+    if(wait > 0){
+      setTimeout(step, Math.min(wait+25, 1200));
+      return;
+    }
     const chosen = botChoose(room, pid);
     setTimeout(()=>{
       playCard(room, pid, chosen.id);
@@ -450,6 +466,7 @@ function setTrumpAndDeal(room, contractorPid, mode, trumpSuit, contract, coinche
     leader: contractorPid,
     turn: contractorPid,
     trick: [],
+    turnUnlockUntil: Date.now() + TURN_DELAY_MS,
     leadSuit: null,
     trickCount: 0,
     roundPoints: {A:0,B:0},

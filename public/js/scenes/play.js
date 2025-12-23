@@ -1,5 +1,6 @@
 import { state } from "../core/state.js";
 import { t } from "../core/i18n.js";
+import { sendWS } from "../core/ws.js";
 
 function cardImg(cardId){ return `/assets/cards/${cardId}.svg`; }
 
@@ -10,6 +11,9 @@ export function mountPlay(root,{render}){
 
   const youId = state.user.id;
   const yourTurn = g.turn === youId;
+  const turnLockMs = Math.max(0, (g.turnUnlockUntil||0) - Date.now());
+  const canPlayNow = !yourTurn ? false : (turnLockMs<=0);
+  const lockSecs = Math.ceil(turnLockMs/1000);
 
   const players = g.players || [];
   const youIndex = players.findIndex(p=>p.id===youId);
@@ -18,6 +22,13 @@ export function mountPlay(root,{render}){
   const isOpponent = (pid)=> pid!==youId && !isTeammate(pid);
 
   const nameOf = (id)=>players.find(p=>p.id===id)?.name || id;
+
+const trumpLabel = (()=> {
+  if(g.mode === "NO_TRUMP") return t("noTrump") || "No Trump";
+  if(g.mode === "ALL_TRUMP") return t("allTrump") || "All Trump";
+  if(g.mode === "SUIT") return `${t("suitTrump") || "Suit Trump"} ${g.trump ? g.trump : ""}`.trim();
+  return g.mode || "-";
+})();
 
   const trickCards = (g.trick||[]).map(play=>`
     <div class="trickCard">
@@ -30,7 +41,7 @@ export function mountPlay(root,{render}){
 const hand = (g.yourHand||[]).map(c=>{
   const isNew = !prev.has(c.id);
   return `
-    <button class="handCard ${isNew?'fly':''}" data-id="${c.id}" ${yourTurn?"":"disabled"}>
+    <button class="handCard ${isNew?'fly':''}" data-id="${c.id}" ${(canPlayNow)?"":"disabled"}>
       <img src="${cardImg(c.id)}" alt="${c.id}" loading="eager"/>
     </button>
   `;
@@ -53,7 +64,9 @@ const hand = (g.yourHand||[]).map(c=>{
             <div class="title">${t("play")}</div>
             <div class="sub">
               Room <span class="code">${room?.code||state.room}</span> ·
-              Mode <b>${g.mode}</b> · Trump <b>${g.trump || '-'}</b> · Contract <b>${g.contract}</b> · x<b>${g.coincheLevel||1}</b>
+              <span class="pill">Stage: Taking</span> ·
+              <span class="pill">Trump: <b>${trumpLabel}</b></span> ·
+              <span class="pill">Contract: <b>${g.contract}</b> · x<b>${g.coincheLevel||1}</b></span>
             </div>
           </div>
           <div class="controls">
@@ -66,7 +79,12 @@ const hand = (g.yourHand||[]).map(c=>{
           <div class="scorePill b">${t("teamB")}: <b>${room?.scores?.B ?? 0}</b> (+${g.roundPoints?.B ?? 0}${g.melds?.B?` · meld ${g.melds.B}`:''})</div>
         </div>
 
-        <div class="gameGrid">
+        <div class="takingPanel">
+  <div class="takingLine"><b>Taking Stage</b> · Trick <b>${(g.trickCount||0)+1}</b>/8 · Leader: <b>${nameOf(g.leader)}</b> · Turn: <b>${nameOf(g.turn)}</b></div>
+  <div class="takingRule">Rule: follow suit if possible • if not, (Suit/All Trump) play trump if possible.</div>
+  ${yourTurn && !canPlayNow ? `<div class="lockBanner">Wait <b>${lockSecs}</b>s before playing</div>` : ``}
+</div>
+<div class="gameGrid">
           <div class="scoreBox">
             <div class="scoreTitle">Seats</div>
             ${players.map((p,i)=>`
@@ -86,6 +104,7 @@ const hand = (g.yourHand||[]).map(c=>{
   <div class="turnHint ${yourTurn?"your":""}">${yourTurn ? t("yourTurn") : t("waiting")}</div>
 
   <div class="tableFelt">
+              ${yourTurn && !canPlayNow ? `<div class="turnLockOverlay">Wait ${lockSecs}s</div>` : ``}
     <div class="seat north ${players[1]?.id===g.turn?'active':''} ${teammateIndex===1?'mate':''}">${players[1]?.name || "—"}</div>
     <div class="seat east ${players[2]?.id===g.turn?'active':''} ${teammateIndex===2?'mate':''}">${players[2]?.name || "—"}</div>
     <div class="seat south me ${players[0]?.id===g.turn?'active':''}">${players[0]?.name || "You"}</div>
@@ -137,7 +156,7 @@ const hand = (g.yourHand||[]).map(c=>{
   root.querySelectorAll(".handCard").forEach(btn=>{
     btn.onclick = ()=>{
       if(!yourTurn) return;
-      state.socket.send(JSON.stringify({type:"game:play", cardId: btn.dataset.id}));
+      sendWS({type:"game:play", cardId: btn.dataset.id});
     };
   });
 }

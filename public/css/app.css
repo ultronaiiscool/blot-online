@@ -669,3 +669,61 @@ img{
 @keyframes flySouth{ to{ transform: translate(-50%,-50%) translateY(220px) scale(.95); opacity: 0; } }
 @keyframes flyEast{ to{ transform: translate(-50%,-50%) translateX(260px) scale(.95); opacity: 0; } }
 @keyframes flyWest{ to{ transform: translate(-50%,-50%) translateX(-260px) scale(.95); opacity: 0; } }
+
+
+/* Taking stage panel + turn lock */
+.takingPanel{
+  width:min(92vw, 640px);
+  margin: 10px auto;
+  padding: 10px 12px;
+  border-radius: 18px;
+  background: rgba(0,0,0,.28);
+  border: 1px solid rgba(255,210,106,.20);
+}
+.takingLine{
+  font-weight: 900;
+  font-size: 13px;
+  color: rgba(255,255,255,.95);
+}
+.takingRule{
+  margin-top: 6px;
+  font-size: 12px;
+  color: rgba(255,255,255,.78);
+}
+.lockBanner{
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: rgba(255,210,106,.16);
+  border: 1px solid rgba(255,210,106,.30);
+  font-weight: 900;
+  text-align: center;
+}
+.turnLockOverlay{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: rgba(0,0,0,.35);
+  color: rgba(255,255,255,.95);
+  font-weight: 1000;
+  font-size: 18px;
+  letter-spacing: .3px;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 10;
+}
+
+/* Bidding suit buttons visibility */
+.suitsRow{ gap: 10px; }
+.suitBtn{
+  min-width: 56px;
+  font-size: 20px;
+  line-height: 1;
+  box-shadow: 0 10px 18px rgba(0,0,0,.18);
+}
+.suitBtn:disabled{
+  opacity: .65;
+  filter: none;
+}

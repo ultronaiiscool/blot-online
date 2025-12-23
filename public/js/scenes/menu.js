@@ -1,6 +1,6 @@
 import { state } from "../core/state.js";
 import { t } from "../core/i18n.js";
-import { ensureSocket } from "../core/ws.js";
+import { ensureSocket, sendWS } from "../core/ws.js";
 
 export function mountMenu(root,{persist,render}){
   root.innerHTML = `
@@ -65,8 +65,8 @@ export function mountMenu(root,{persist,render}){
   ensureSocket(()=>{});
   root.querySelector("#mic").onchange = (e)=>{ state.micAllowed=e.target.checked; persist(); };
 
-  root.querySelector("#create").onclick = ()=>state.socket.send(JSON.stringify({type:"room:create"}));
-  root.querySelector("#quick").onclick = ()=>state.socket.send(JSON.stringify({type:"room:create"}));
+  root.querySelector("#create").onclick = ()=>sendWS({type:"room:create"});
+  root.querySelector("#quick").onclick = ()=>sendWS({type:"room:create"});
 
   root.querySelector("#join").onclick = ()=>{
     state.joinOpen=true; state.joinCode=""; render();
@@ -82,7 +82,7 @@ export function mountMenu(root,{persist,render}){
     root.querySelector("#joinGo").onclick = ()=>{
       if(!state.joinCode) return;
       state.joinOpen=false;
-      state.socket.send(JSON.stringify({type:"room:join", code: state.joinCode}));
+      sendWS({type:"room:join", code: state.joinCode});
       render();
     };
     root.querySelector("#joinCancel").onclick = ()=>{ state.joinOpen=false; render(); };

@@ -12,6 +12,19 @@ function scheduleReconnect(onMessage){
   backoffMs = Math.min(8000, Math.floor(backoffMs * 1.6));
 }
 
+export function sendWS(payload){
+  // payload can be object or string
+  const msg = (typeof payload === "string") ? payload : JSON.stringify(payload);
+  state.wsQueue = state.wsQueue || [];
+  if(!state.socket || state.socket.readyState !== 1){
+    state.wsQueue.push(msg);
+    // try to connect if not already
+    ensureSocket(()=>{});
+    return;
+  }
+  try{ state.socket.send(msg); } catch { state.wsQueue.push(msg); }
+}
+
 export function ensureSocket(onMessage, force=false){
   if(!force && state.socket && (state.socket.readyState===0 || state.socket.readyState===1)) return;
 
@@ -25,6 +38,13 @@ export function ensureSocket(onMessage, force=false){
   }
 
   state.socket.onopen = ()=>{
+    // flush queued messages
+    try{
+      const q = state.wsQueue || [];
+      state.wsQueue = [];
+      for(const m of q) state.socket.send(m);
+    } catch {}
+
     backoffMs = 400;
     if(state.user){
       state.socket.send(JSON.stringify({type:"init", id:state.user.id, name:state.user.name}));

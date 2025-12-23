@@ -1,5 +1,6 @@
 import { state } from "../core/state.js";
 import { t } from "../core/i18n.js";
+import { sendWS } from "../core/ws.js";
 
 export function mountLobby(root,{persist,render}){
   state.rulesOpen = state.rulesOpen || false;
@@ -89,7 +90,7 @@ export function mountLobby(root,{persist,render}){
   const targetSel = root.querySelector("#target");
   targetSel.value = String(room.target || 151);
   targetSel.onchange = (e)=>{
-    state.socket.send(JSON.stringify({type:"room:settings", target: Number(e.target.value)}));
+    sendWS({type:"room:settings", target: Number(e.target.value)});
   };
 
   root.querySelector("#rules").onclick = ()=>{ state.rulesOpen=true; render(); };
@@ -125,14 +126,14 @@ export function mountLobby(root,{persist,render}){
       };
       state.rulesDraft = newRules;
       persist();
-      state.socket.send(JSON.stringify({type:"room:settings", target: Number(rtarget.value), rules: newRules}));
+      sendWS({type:"room:settings", target: Number(rtarget.value), rules: newRules});
       state.rulesOpen=false;
       render();
     };
   }
 
   root.querySelector("#leave").onclick = ()=>{
-    state.socket.send(JSON.stringify({type:"room:leave"}));
+    sendWS({type:"room:leave"});
     state.room=null; state.roomState=null; state.bidState=null; state.gameState=null;
     state.phase="MENU"; render();
   };
@@ -148,10 +149,10 @@ export function mountLobby(root,{persist,render}){
 
   root.querySelector("#readyBtn").onclick = ()=>{
     const cur = !!room?.ready?.[state.user.id];
-    state.socket.send(JSON.stringify({type:"lobby:ready", roomId: room.id, ready: !cur}));
+    sendWS({type:"lobby:ready", roomId: room.id, ready: !cur});
   };
 
   root.querySelector("#start").onclick = ()=>{
-    state.socket.send(JSON.stringify({type:"game:start"}));
+    sendWS({type:"game:start"});
   };
 }
