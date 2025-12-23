@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="250" height="350" viewBox="0 0 250 350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a1a1a"/>
+      <stop offset="1" stop-color="#0d0d0d"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="rgba(255,255,255,0.18)"/>
+      <stop offset="0.35" stop-color="rgba(255,255,255,0.05)"/>
+      <stop offset="1" stop-color="rgba(255,255,255,0)"/>
+    </linearGradient>
+    <linearGradient id="faceGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="rgba(50,205,50,0.28)"/>
+      <stop offset="1" stop-color="rgba(0,0,0,0.25)"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="rgba(0,0,0,0.55)"/>
+    </filter>
+    <pattern id="grain" width="32" height="32" patternUnits="userSpaceOnUse">
+      <circle cx="4" cy="6" r="1" fill="rgba(255,255,255,0.06)"/>
+      <circle cx="18" cy="12" r="1" fill="rgba(255,255,255,0.05)"/>
+      <circle cx="28" cy="24" r="1" fill="rgba(255,255,255,0.05)"/>
+      <circle cx="12" cy="26" r="1" fill="rgba(255,255,255,0.04)"/>
+    </pattern>
+  </defs>
+
+  <g filter="url(#shadow)">
+    <rect x="8" y="8" width="234" height="334" rx="20" fill="url(#bg)" stroke="rgba(255,255,255,0.22)" stroke-width="2"/>
+    <rect x="12" y="12" width="226" height="326" rx="14" fill="url(#grain)" opacity="0.55"/>
+    <path d="M20 20 L230 20 L230 70 Q125 130 20 70 Z" fill="rgba(50,205,50,0.10)" />
+    <rect x="12" y="12" width="226" height="326" rx="14" fill="url(#sheen)" opacity="0.9"/>
+  </g>
+
+  <g>
+    <text x="26" y="44" font-size="34" font-weight="700" fill="rgba(255,255,255,0.96)">J</text>
+    <text x="30" y="74" font-size="32" fill="#ff4d6d">♦</text>
+
+    <g transform="translate(224,306) rotate(180)">
+      <text x="0" y="0" font-size="34" font-weight="700" fill="rgba(255,255,255,0.96)">J</text>
+      <text x="4" y="30" font-size="32" fill="#ff4d6d">♦</text>
+    </g>
+  </g>
+
+  
+  
+        <g opacity="0.98">
+          <path d="M125 95 C170 95 200 125 200 170 C200 235 150 250 125 285 C100 250 50 235 50 170 C50 125 80 95 125 95 Z"
+                fill="url(#faceGrad)" stroke="rgba(255,255,255,0.18)" stroke-width="2"/>
+          <text x="125" y="170" text-anchor="middle" dominant-baseline="middle" font-size="78" fill="#ff4d6d">♦</text>
+          <text x="125" y="235" text-anchor="middle" dominant-baseline="middle" font-size="58" fill="rgba(255,255,255,0.95)">J</text>
+        </g>
+        
+</svg>

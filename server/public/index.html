@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Armenian Blot</title>
+  <link rel="stylesheet" href="style.css" />
+  <meta name="google-client-id" content="835310029874-7m183e2verp9im9n2ce0og34l8jom3s9.apps.googleusercontent.com" />
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div id="title" class="title">Armenian Blot (Step D)</div>
+      <div class="subtitle">Multiplayer skeleton that actually works.</div>
+    </div>
+
+    <div class="lang-wrap">
+      <select id="langSelect" class="select">
+        <option value="en">English</option>
+        <option value="hy">Հայերեն</option>
+        <option value="ru">Русский</option>
+      </select>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="card panel">
+<div class="row">
+        <label id="lblRoom" class="lbl" for="roomCodeInput">Room code</label>
+        <input id="roomCodeInput" class="input" placeholder="ABCDE" />
+      </div>
+
+      <div class="buttons">
+        <div class="inline">
+          <label id="lblBots" class="lbl" for="botLevelSelect">Bots</label>
+          <select id="botLevelSelect" class="select">
+            <option value="off">Off</option>
+            <option value="easy">Easy</option>
+            <option value="normal" selected>Normal</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+        <div class="inline grow">
+          <button id="googleSignInBtn" class="btn">Sign in with Google</button>
+          <button id="googleSignOutBtn" class="btn" hidden>Sign out</button>
+        </div>
+
+<button id="googleSignInBtn" class="btn">Sign in with Google</button>
+        <button id="createRoomBtn" class="btn primary">Create Room</button>
+        <button id="joinRoomBtn" class="btn">Join Room</button>
+        <button id="quickMatchBtn" class="btn">Quick Match</button>
+        <button id="leaveBtn" class="btn danger">Leave</button>
+      </div>
+
+      <div id="status" class="status">Not connected yet.</div>
+<div id="signinBanner" class="signinBanner" hidden>
+  <div class="signinTitle" id="signinTitle">Sign in required</div>
+  <div class="signinBody" id="signinBody">Please sign in with Google to play.</div>
+</div>
+      <div id="roomInfo" class="roominfo" hidden></div>
+<div id="shareWrap" class="share" hidden>
+  <div id="shareTitle" class="shareTitle">Share room</div>
+  <div class="shareRow">
+    <input id="shareLink" class="input" readonly />
+    <button id="copyLinkBtn" class="btn">Copy link</button>
+  </div>
+</div>
+    </section>
+
+    <section class="card panel">
+      <div class="panelHead">
+        <div id="playersTitle" class="panelTitle">Players</div>
+        <div id="turnStatus" class="turnStatus">—</div>
+      </div>
+      <div id="players" class="players"></div>
+      <div class="divider"></div>
+      <div class="panelTitle">Your hand</div>
+      <div id="hand" class="hand"></div>
+      <div class="divider"></div>
+      <div class="panelTitle">Trick</div>
+      <div id="trick" class="trick"></div>
+    </section>
+  </main>
+<div id="toast" class="toast" hidden></div>
+
+  <div class="build">BUILD: 2025-STEP-D-CLEAN</div>
+
+  <script type="module" src="client.js"></script>
+</body>
+</html>
