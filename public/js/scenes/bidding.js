@@ -46,7 +46,14 @@ export function mountBidding(root,{render}){
 
         <div class="bidStatus">
           <div><b>Turn:</b> ${players.find(p=>p.id===turnId)?.name || turnId}</div>
-          <div><b>Highest:</b> ${highest ? `${players.find(p=>p.id===highest.pid)?.name || highest.pid} · ${highest.suit} · ${highest.contract}` : "None"}</div>
+          <div><b>Highest:</b> ${
+  highest ? (()=> {
+    const who = players.find(p=>p.id===highest.pid)?.name || highest.pid;
+    const modeLabel = highest.mode==="NO_TRUMP" ? "No Trump" : (highest.mode==="ALL_TRUMP" ? "All Trump" : "Suit Trump");
+    const suitLabel = highest.mode==="SUIT" ? (highest.suit ? SUITS.find(s=>s.id===highest.suit)?.label : "Suit pending") : modeLabel;
+    return `${who} · ${suitLabel} · ${highest.contract}`;
+  })() : "None"
+}</div>
         </div>
 
         <div class="bidActions">

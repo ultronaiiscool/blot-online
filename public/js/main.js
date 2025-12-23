@@ -46,6 +46,22 @@ function _render(){
   } else {
     document.querySelectorAll('.toast').forEach(t=>t.remove());
   }
+
+// transition overlay
+if(state.transition && Date.now() < state.transition.until){
+  const ov = document.createElement('div');
+  ov.className = 'transitionOverlay';
+  ov.innerHTML = `<div class="transitionCard">
+    <div class="transitionTitle">${state.transition.title}</div>
+    <div class="transitionSub">${state.transition.sub || ""}</div>
+  </div>`;
+  document.body.appendChild(ov);
+  // remove any previous
+  document.querySelectorAll('.transitionOverlay').forEach((t,i)=>{ if(i<document.querySelectorAll('.transitionOverlay').length-1) t.remove();});
+} else {
+  state.transition = null;
+  document.querySelectorAll('.transitionOverlay').forEach(t=>t.remove());
+}
 }
 
 
@@ -76,10 +92,20 @@ function handle(msg){
     scheduleRender();
   }
   if(msg.type==="game:state"){
-    state.gameState = msg.game;
-    state.phase="PLAY";
-    scheduleRender();
+  const was = state.phase;
+  state.gameState = msg.game;
+  state.phase="PLAY";
+  // show transition when moving from bidding -> play
+  if(was==="BIDDING" && msg.game?.contract){
+    const trumpTxt = msg.game.trump ? msg.game.trump : (msg.game.mode || "-");
+    state.transition = {
+      title: `Contract set: ${msg.game.contract}`,
+      sub: `Trump: ${trumpTxt}`,
+      until: Date.now() + 900
+    };
   }
+  scheduleRender();
+}
   if(msg.type==="round:end"){
     // simple notification, then lobby view shows updated scores
     toast(`Round ended · A ${msg.scores.A} · B ${msg.scores.B} · Target ${msg.target}`);

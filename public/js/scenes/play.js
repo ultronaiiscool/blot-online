@@ -12,6 +12,11 @@ export function mountPlay(root,{render}){
   const yourTurn = g.turn === youId;
 
   const players = g.players || [];
+  const youIndex = players.findIndex(p=>p.id===youId);
+  const teammateIndex = (youIndex>=0) ? (youIndex+2)%4 : -1;
+  const isTeammate = (pid)=> players[teammateIndex]?.id === pid;
+  const isOpponent = (pid)=> pid!==youId && !isTeammate(pid);
+
   const nameOf = (id)=>players.find(p=>p.id===id)?.name || id;
 
   const trickCards = (g.trick||[]).map(play=>`
@@ -21,11 +26,24 @@ export function mountPlay(root,{render}){
     </div>
   `).join("");
 
-  const hand = (g.yourHand||[]).map(c=>`
-    <button class="handCard" data-id="${c.id}" ${yourTurn?"":"disabled"}>
-      <img src="${cardImg(c.id)}" alt="${c.id}"/>
+  const prev = new Set((state.prevHand||[]));
+const hand = (g.yourHand||[]).map(c=>{
+  const isNew = !prev.has(c.id);
+  return `
+    <button class="handCard ${isNew?'fly':''}" data-id="${c.id}" ${yourTurn?"":"disabled"}>
+      <img src="${cardImg(c.id)}" alt="${c.id}" loading="eager"/>
     </button>
-  `).join("");
+  `;
+}).join("");
+
+  // detect trick completion for animation
+  const prevTrick = state.prevTrick || [];
+  const prevLeader = state._prevLeader;
+  const trickJustEnded = (prevTrick.length===4 && (g.trick||[]).length===0 && g.leader && g.leader!==prevLeader);
+  if(trickJustEnded){
+    const winnerId = g.leader;
+    state.trickAnim = { cards: prevTrick, winnerId, started: Date.now() };
+  }
 
   root.innerHTML = `
     <div class="screen">
@@ -59,11 +77,27 @@ export function mountPlay(root,{render}){
             `).join("")}
           </div>
 
-          <div class="tableBox">
-            <div class="turnHint ${yourTurn?"your":""}">${yourTurn ? t("yourTurn") : t("waiting")}</div>
-            <div class="trickArea">${trickCards || `<div class="emptyTrick">Play cards…</div>`}</div>
-            <div class="smallNote">Follow suit if possible. If not, trump if possible. (Simplified rules)</div>
-          </div>
+          <div class="teamPanel">
+  <div class="teamBox teamA">Team A<br/>${[players[0],players[2]].filter(Boolean).map(p=>p.name).join(" · ")}</div>
+  <div class="teamBox teamB">Team B<br/>${[players[1],players[3]].filter(Boolean).map(p=>p.name).join(" · ")}</div>
+</div>
+
+<div class="tableBox casino">
+  <div class="turnHint ${yourTurn?"your":""}">${yourTurn ? t("yourTurn") : t("waiting")}</div>
+
+  <div class="tableFelt">
+    <div class="seat north ${players[1]?.id===g.turn?'active':''} ${teammateIndex===1?'mate':''}">${players[1]?.name || "—"}</div>
+    <div class="seat east ${players[2]?.id===g.turn?'active':''} ${teammateIndex===2?'mate':''}">${players[2]?.name || "—"}</div>
+    <div class="seat south me ${players[0]?.id===g.turn?'active':''}">${players[0]?.name || "You"}</div>
+    <div class="seat west ${players[3]?.id===g.turn?'active':''} ${teammateIndex===3?'mate':''}">${players[3]?.name || "—"}</div>
+
+    <div class="deckStack" aria-hidden="true"></div>
+
+    <div class="trickArea center">${trickCards || `<div class="emptyTrick">${t("play")}</div>`}</div>
+  </div>
+
+  <div class="smallNote">${t("mobileTip") || "Tip: tap a card to play. Swipe the hand left/right if needed."}</div>
+</div>
         </div>
 
         <div class="handBar">${hand}</div>
@@ -72,6 +106,31 @@ export function mountPlay(root,{render}){
   `;
 
   state.prevHand = (g.yourHand||[]).map(x=>x.id);
+
+
+  // persist prev hand/trick
+  state.prevHand = (g.yourHand||[]).map(x=>x.id);
+  state.prevTrick = (g.trick||[]).slice();
+  state._prevLeader = g.leader;
+
+  // trick win animation overlay
+  if(state.trickAnim){
+    const anim = state.trickAnim;
+    const wIndex = players.findIndex(p=>p.id===anim.winnerId);
+    const seatClass = (wIndex===1) ? 'win-north' : (wIndex===2) ? 'win-east' : (wIndex===3) ? 'win-west' : 'win-south';
+
+    const overlay = document.createElement('div');
+    overlay.className = 'trickWinOverlay ' + seatClass;
+    overlay.innerHTML =
+      `<div class="trickWinStack">` +
+      (anim.cards||[]).map(pl=>`<img class="trickWinCard" src="${cardImg(pl.card.id)}" alt="${pl.card.id}"/>`).join('') +
+      `</div>`;
+    document.body.appendChild(overlay);
+    setTimeout(()=>{ overlay.classList.add('go'); }, 20);
+    setTimeout(()=>{ overlay.remove(); }, 820);
+    state.trickAnim = null;
+  }
+  }
 
   root.querySelector("#back").onclick = ()=>{ state.phase="LOBBY"; render(); };
 
