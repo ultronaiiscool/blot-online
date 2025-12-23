@@ -71,6 +71,8 @@ export function mountPlay(root,{render}){
     </div>
   `;
 
+  state.prevHand = (g.yourHand||[]).map(x=>x.id);
+
   root.querySelector("#back").onclick = ()=>{ state.phase="LOBBY"; render(); };
 
   root.querySelectorAll(".handCard").forEach(btn=>{

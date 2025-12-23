@@ -474,3 +474,111 @@ img{
 @media (prefers-reduced-motion: reduce){
   *{ animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
 }
+
+
+/* Casino table layout (PLAY) */
+.tableBox.casino{ position: relative; }
+.tableFelt{
+  position: relative;
+  margin: 10px auto 6px;
+  width: min(92vw, 640px);
+  aspect-ratio: 16/10;
+  border-radius: 999px;
+  background:
+    radial-gradient(120% 90% at 50% 45%, rgba(255,255,255,.14), rgba(255,255,255,0) 55%),
+    radial-gradient(70% 60% at 50% 55%, rgba(0,0,0,.35), rgba(0,0,0,0) 60%),
+    linear-gradient(180deg, rgba(9,52,33,.95), rgba(5,26,16,.95));
+  box-shadow:
+    0 18px 50px rgba(0,0,0,.45),
+    inset 0 0 0 10px rgba(255,210,106,.20),
+    inset 0 0 0 2px rgba(255,210,106,.35);
+  overflow: hidden;
+}
+
+.tableFelt::after{
+  content:"";
+  position:absolute;
+  inset: 18px;
+  border-radius: 999px;
+  border: 2px dashed rgba(255,210,106,.22);
+  pointer-events:none;
+}
+
+.seat{
+  position:absolute;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(0,0,0,.35);
+  border: 1px solid rgba(255,210,106,.25);
+  color: rgba(255,255,255,.92);
+  font-weight: 900;
+  font-size: 12px;
+  max-width: 40%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.seat.north{ top: 10px; left: 50%; transform: translateX(-50%); }
+.seat.south{ bottom: 10px; left: 50%; transform: translateX(-50%); }
+.seat.east{ right: 10px; top: 50%; transform: translateY(-50%); }
+.seat.west{ left: 10px; top: 50%; transform: translateY(-50%); }
+.seat.me{ background: rgba(255,210,106,.14); border-color: rgba(255,210,106,.45); }
+
+.deckStack{
+  position:absolute;
+  left: 50%;
+  top: 48%;
+  transform: translate(-50%,-50%);
+  width: 56px;
+  height: 78px;
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(0,0,0,.20), rgba(0,0,0,0) 60%),
+    linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,0)),
+    rgba(0,0,0,.18);
+  border: 1px solid rgba(255,210,106,.22);
+  box-shadow: 0 12px 26px rgba(0,0,0,.35);
+  opacity: .9;
+}
+
+.trickArea.center{
+  position:absolute;
+  left: 50%;
+  top: 52%;
+  transform: translate(-50%,-50%);
+  width: min(86%, 520px);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap: 10px;
+  padding: 10px;
+}
+
+.trickCard img, .handCard img{
+  filter: drop-shadow(0 10px 18px rgba(0,0,0,.45));
+}
+
+.handBar{
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+  gap: 10px;
+}
+
+.handCard{ scroll-snap-align: center; }
+
+.handCard.fly img{
+  animation: dealIn .35s cubic-bezier(.15,.9,.2,1);
+}
+
+@keyframes dealIn{
+  from{
+    opacity: 0;
+    transform: translateY(20px) scale(.86) rotate(-2deg);
+  }
+  to{
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+}

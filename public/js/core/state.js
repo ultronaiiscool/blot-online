@@ -11,5 +11,6 @@ export const state = {
   lang: localStorage.getItem("lang") || "en",
   micAllowed: JSON.parse(localStorage.getItem("micAllowed") || "false"),
   muted: JSON.parse(localStorage.getItem("muted") || "{}"),
-  rulesDraft: JSON.parse(localStorage.getItem("rulesDraft") || "null")
+  rulesDraft: JSON.parse(localStorage.getItem("rulesDraft") || "null"),
+  prevHand: []
 };
