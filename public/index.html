@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <title>Armenian Blot</title>
+  <meta name="theme-color" content="#0b2a1a"/>
+  <link rel="manifest" href="/manifest.webmanifest"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Blot"/>
+  <link rel="icon" href="/assets/icon.svg" type="image/svg+xml"/>
+  <link rel="stylesheet" href="/css/app.css"/>
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module" src="/js/main.js"></script>
+  <script>
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.register('/sw.js').catch(()=>{});
+    }
+  </script>
+</body>
+</html>

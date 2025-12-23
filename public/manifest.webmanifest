@@ -1,0 +1,16 @@
+{
+  "name": "Armenian Blot",
+  "short_name": "Blot",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07120c",
+  "theme_color": "#0b2a1a",
+  "icons": [
+    {
+      "src": "/assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

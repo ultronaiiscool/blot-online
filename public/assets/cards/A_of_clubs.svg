@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="520" viewBox="0 0 360 520">
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f3f4f6"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <rect x="14" y="14" width="332" height="492" rx="26" fill="url(#paper)" filter="url(#shadow)"/>
+  <rect x="18" y="18" width="324" height="484" rx="24" fill="none" stroke="#e5e7eb" stroke-width="2"/>
+
+  <text x="42" y="70" font-family="system-ui,Segoe UI,Arial" font-weight="900" font-size="44" fill="#111827">A</text>
+  <text x="44" y="110" font-family="system-ui,Segoe UI,Arial" font-weight="900" font-size="46" fill="#111827">♣</text>
+
+  <g transform="translate(318,450) rotate(180)">
+    <text x="0" y="0" font-family="system-ui,Segoe UI,Arial" font-weight="900" font-size="44" fill="#111827">A</text>
+    <text x="2" y="40" font-family="system-ui,Segoe UI,Arial" font-weight="900" font-size="46" fill="#111827">♣</text>
+  </g>
+
+  <text x="180" y="270" text-anchor="middle" font-family="system-ui,Segoe UI,Arial" font-weight="900" font-size="170" fill="#111827">♣</text>
+</svg>
