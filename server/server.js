@@ -246,10 +246,10 @@ function cardPoints(card, trump){
   return NON_TRUMP_POINTS[card.r] ?? 0;
 }
 
-function compareCards(a,b, leadSuit, trump){
+function compareCards(a,b, leadSuit, mode, trump){
   // returns true if a beats b
-  const aTrump = a.s === trump;
-  const bTrump = b.s === trump;
+  const aTrump = (mode===MODES.ALL_TRUMP) ? true : (mode===MODES.SUIT ? a.s === trump : false);
+  const bTrump = (mode===MODES.ALL_TRUMP) ? true : (mode===MODES.SUIT ? b.s === trump : false);
   if(aTrump && !bTrump) return true;
   if(!aTrump && bTrump) return false;
 
@@ -263,20 +263,28 @@ function compareCards(a,b, leadSuit, trump){
   const bLead = b.s === leadSuit;
   if(aLead && !bLead) return true;
   if(!aLead && bLead) return false;
-  if(!aLead && !bLead) return false; // off-suit can't beat lead in this simplified ruleset
+  if(!aLead && !bLead){
+    // In ALL_TRUMP, any suit can win since all are treated as trump.
+    if(mode===MODES.ALL_TRUMP){
+      return TRUMP_ORDER.indexOf(a.r) < TRUMP_ORDER.indexOf(b.r);
+    }
+    return false; // off-suit can't beat lead in NO_TRUMP/SUIT simplified rules
+  }
 
   return NON_TRUMP_ORDER.indexOf(a.r) < NON_TRUMP_ORDER.indexOf(b.r);
 }
 
-function legalCards(hand, leadSuit, trump){
+function legalCards(hand, leadSuit, mode, trump){
   if(!leadSuit) return hand;
 
   const sameSuit = hand.filter(c=>c.s===leadSuit);
   if(sameSuit.length) return sameSuit;
 
-  // if can't follow suit, must trump if you have trump (simplified)
-  const trumps = hand.filter(c=>c.s===trump);
-  if(trumps.length) return trumps;
+  // if can't follow suit, must trump only in SUIT mode (simplified)
+  if(mode===MODES.SUIT){
+    const trumps = hand.filter(c=>c.s===trump);
+    if(trumps.length) return trumps;
+  }
 
   return hand;
 }
@@ -286,7 +294,7 @@ function resolveTrick(room){
   const leadSuit = g.leadSuit;
   let best = g.trick[0];
   for(const play of g.trick.slice(1)){
-    if(compareCards(play.card, best.card, leadSuit, g.trump)) best = play;
+    if(compareCards(play.card, best.card, leadSuit, g.mode, g.trump)) best = play;
   }
   const winnerPid = best.pid;
   const winnerTeam = teamOf(room, winnerPid);
@@ -361,7 +369,7 @@ function playCard(room, pid, cardId){
   if(idx === -1) return;
 
   const card = hand[idx];
-  const legal = legalCards(hand, g.leadSuit, g.trump).map(c=>c.id);
+  const legal = legalCards(hand, g.leadSuit, g.mode, g.trump).map(c=>c.id);
   if(!legal.includes(cardId)) return;
 
   hand.splice(idx,1);
@@ -384,7 +392,7 @@ function playCard(room, pid, cardId){
 function botChoose(room, pid){
   const g = room.game;
   const hand = g.hands[pid];
-  const legal = legalCards(hand, g.leadSuit, g.trump);
+  const legal = legalCards(hand, g.leadSuit, g.mode, g.trump);
   // tiny bit smarter: prefer higher point cards if leading, else random
   const scored = legal.map(c=>({c, p: cardPoints(c, g.trump)})).sort((a,b)=>b.p-a.p);
   if(Math.random()<0.55) return scored[0].c;
@@ -425,7 +433,7 @@ function startBidding(room){
   maybeBotBid(room);
 }
 
-function setTrumpAndDeal(room, contractorPid, trumpSuit, contract){
+function setTrumpAndDeal(room, contractorPid, mode, trumpSuit, contract, coincheLevel=1){
   room.phase = "PLAY";
   const deck = shuffle(makeDeck());
   const hands = {};
@@ -435,8 +443,9 @@ function setTrumpAndDeal(room, contractorPid, trumpSuit, contract){
     meldState: { announced: {}, done: false },
     hands,
     mode,
-    trump: trumpSuit,
+    trump: (mode===MODES.SUIT ? trumpSuit : null),
     contract: contract,
+    coincheLevel,
     contractor: contractorPid,
     leader: contractorPid,
     turn: contractorPid,
