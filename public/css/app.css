@@ -582,3 +582,23 @@ img{
     transform: translateY(0) scale(1) rotate(0deg);
   }
 }
+
+
+.teamPanel{
+  display:flex;
+  justify-content:space-between;
+  margin:8px auto;
+  width:min(92vw,640px);
+}
+.teamBox{
+  flex:1;
+  margin:0 6px;
+  padding:8px;
+  border-radius:14px;
+  background:rgba(0,0,0,.35);
+  border:1px solid rgba(255,210,106,.35);
+  font-weight:800;
+  text-align:center;
+}
+.teamA{ outline:2px solid #2fbf71; }
+.teamB{ outline:2px solid #ef4444; }
